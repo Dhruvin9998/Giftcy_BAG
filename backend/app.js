@@ -18,6 +18,11 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import couponRoutes from './routes/couponRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
+import collectionRoutes from './routes/collectionRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
+import bannerRoutes from './routes/bannerRoutes.js';
+import bulkInquiryRoutes from './routes/bulkInquiryRoutes.js';
 
 // Import Middleware & Utilities
 import errorHandler from './middleware/errorMiddleware.js';
@@ -90,6 +95,11 @@ app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/coupons', couponRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/contact', contactRoutes);
+app.use('/api/v1/collections', collectionRoutes);
+app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/blogs', blogRoutes);
+app.use('/api/v1/banners', bannerRoutes);
+app.use('/api/v1/bulk-inquiries', bulkInquiryRoutes);
 
 // Root route
 app.get('/', (req, res) => {

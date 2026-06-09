@@ -30,12 +30,13 @@ export const getDashboardStats = async (req, res, next) => {
       },
     ]);
 
-    const totalSales = salesData.length > 0 ? salesData[0].totalSales : 0;
-
     // 2. Counts
     const ordersCount = await Order.countDocuments();
     const usersCount = await User.countDocuments();
     const productsCount = await Product.countDocuments();
+    const customersCount = await User.countDocuments({ role: 'user' });
+    const pendingOrdersCount = await Order.countDocuments({ $or: [{ status: 'Pending' }, { status: 'Processing' }] });
+    const lowStockCount = await Product.countDocuments({ stock: { $lte: 10 } });
     
     // 3. Out of Stock items count
     const outOfStockCount = await Product.countDocuments({ stock: 0 });
@@ -95,6 +96,9 @@ export const getDashboardStats = async (req, res, next) => {
           ordersCount,
           usersCount,
           productsCount,
+          customersCount,
+          pendingOrdersCount,
+          lowStockCount,
           outOfStockCount,
         },
         categorySales,

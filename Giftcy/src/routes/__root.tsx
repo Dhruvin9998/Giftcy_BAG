@@ -13,6 +13,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { CartProvider } from "@/components/CartContext";
+import { WishlistProvider } from "@/components/WishlistContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { AuthProvider } from "@/components/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -61,7 +62,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Premium reusable fabric gift bags. Wedding, festive, and corporate gifting." },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap",
+      },
+      { rel: "preconnect", href: "https://accounts.google.com" },
+    ],
+    scripts: [
+      { src: "https://accounts.google.com/gsi/client", async: true },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -83,14 +96,16 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <CartProvider>
-          <Header />
-          <main><Outlet /></main>
-          <Footer />
-          <WhatsAppButton />
-          <CartDrawer />
-          <Toaster position="top-center" />
-        </CartProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <Header />
+            <main><Outlet /></main>
+            <Footer />
+            <WhatsAppButton />
+            <CartDrawer />
+            <Toaster position="top-center" />
+          </CartProvider>
+        </WishlistProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

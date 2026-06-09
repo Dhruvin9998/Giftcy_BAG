@@ -12,19 +12,18 @@ import { protect, authorize } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 router.use(protect);
-router.use(authorize('admin')); // Restrict all paths inside this router to admins
 
 // Dashboard statistics
-router.get('/dashboard', getDashboardStats);
+router.get('/dashboard', authorize('admin', 'staff'), getDashboardStats);
 
 // User management
-router.get('/users', getAllUsers);
+router.get('/users', authorize('admin', 'staff'), getAllUsers);
 router.route('/users/:id')
-  .put(updateUserRole)
-  .delete(deleteUserByAdmin);
+  .put(authorize('admin'), updateUserRole)
+  .delete(authorize('admin'), deleteUserByAdmin);
 
 // Order management
-router.get('/orders', getAllOrders);
-router.put('/orders/:id/status', updateOrderStatus);
+router.get('/orders', authorize('admin', 'staff'), getAllOrders);
+router.put('/orders/:id/status', authorize('admin', 'staff'), updateOrderStatus);
 
 export default router;

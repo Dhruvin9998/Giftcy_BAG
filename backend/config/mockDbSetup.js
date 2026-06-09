@@ -5,6 +5,10 @@ import Order from '../models/Order.js';
 import Coupon from '../models/Coupon.js';
 import Cart from '../models/Cart.js';
 import Review from '../models/Review.js';
+import Settings from '../models/Settings.js';
+import Blog from '../models/Blog.js';
+import Banner from '../models/Banner.js';
+import BulkInquiry from '../models/BulkInquiry.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -24,7 +28,11 @@ export const setupMockDb = () => {
     Order: [],
     Coupon: [],
     Cart: [],
-    Review: []
+    Review: [],
+    Settings: [],
+    Blog: [],
+    Banner: [],
+    BulkInquiry: []
   };
 
   // Helper to convert queries
@@ -169,6 +177,51 @@ export const setupMockDb = () => {
         stock: 100,
         isFeatured: true,
       },
+      {
+        name: 'Maroon Velvet Potli',
+        slug: 'maroon-velvet-potli',
+        description: 'Rich maroon velvet potli with gold thread embroidery and pearl detailing. A royal choice for sangeet and mehendi favors.',
+        price: 289,
+        compareAtPrice: 399,
+        images: ['https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=800&auto=format&fit=crop&q=60'],
+        category: potli._id,
+        stock: 80,
+        isNewArrival: true,
+      },
+      {
+        name: 'Pearl White Envelope Bag',
+        slug: 'pearl-white-envelope',
+        description: 'Minimalist pearl white shagun envelope bag in silk finish. Perfect for cash gifts, vouchers, and small jewelry at weddings.',
+        price: 199,
+        compareAtPrice: 279,
+        images: ['https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=800&auto=format&fit=crop&q=60'],
+        category: wedding._id,
+        stock: 120,
+        isBestSeller: true,
+      },
+      {
+        name: 'Festive Brocade Box Bag',
+        slug: 'festive-brocade-box',
+        description: 'Structured brocade box bag with a magnetic closure. Ideal for Diwali sweets, dry fruit hampers, and festive corporate gifting.',
+        price: 349,
+        compareAtPrice: 499,
+        images: ['https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&auto=format&fit=crop&q=60'],
+        category: ret._id,
+        stock: 60,
+        isNewArrival: true,
+        isFeatured: true,
+      },
+      {
+        name: 'Eco Jute Gift Sack',
+        slug: 'eco-jute-gift-sack',
+        description: 'Rustic jute gift sack with cotton lining and custom screen print option. Perfect for eco-conscious brands and sustainable gifting.',
+        price: 149,
+        compareAtPrice: 199,
+        images: ['https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&auto=format&fit=crop&q=60'],
+        category: custom._id,
+        stock: 200,
+        isBestSeller: true,
+      },
     ];
 
     products.forEach(p => memDb.Product.push(makeDoc('Product', p)));
@@ -193,6 +246,108 @@ export const setupMockDb = () => {
       expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
     memDb.Coupon.push(coupon);
+
+    // 5. Settings
+    const defaultSettings = [
+      {
+        key: "homepage_hero",
+        value: {
+          badge: "Festive Edit '26",
+          title: "Make Every Gift Premium",
+          description: "Reusable fabric gift bags, handcrafted in India for weddings, festivals, and life's most precious moments.",
+          image: ""
+        }
+      },
+      {
+        key: "homepage_stats",
+        value: [
+          { value: "50k+", label: "Bags gifted" },
+          { value: "100%", label: "Reusable" },
+          { value: "4.9★", label: "Loved by" }
+        ]
+      },
+      {
+        key: "contact_info",
+        value: {
+          whatsapp: "+91 99999 99999",
+          email: "hello@giftcy.in",
+          phone: "+91 99999 99999",
+          address: "Mumbai, India"
+        }
+      },
+      {
+        key: "about_page",
+        value: {
+          title: "Our Story",
+          subtitle: "A gift is more than what's inside.",
+          description: "Giftcy was born from a simple belief: the way we give matters as much as what we give. We craft reusable fabric bags that elevate every gesture — sustainable, premium, unforgettable.",
+          philosophyHeading: "Beautifully reusable.",
+          philosophyDesc: "India gifts more than any nation in the world. We believe that joy shouldn't end in a landfill. Every Giftcy bag replaces single-use paper and plastic with something the receiver will cherish, reuse, and remember.",
+          craftHeading: "Made by hand, in India.",
+          craftDesc: "We work with master karigars and women-led ateliers across Gujarat and Rajasthan, supporting traditional craft while building modern, premium products.",
+          storyImage: "https://images.unsplash.com/photo-1512909006721-3d6018887383?w=800",
+          craftImage: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800"
+        }
+      }
+    ];
+
+    defaultSettings.forEach(s => memDb.Settings.push(makeDoc('Settings', s)));
+
+    // 6. Banners
+    const defaultBanners = [
+      {
+        title: "Wedding Collection 2026",
+        subtitle: "Luxury Drawstring Potli Bags",
+        image: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1600",
+        ctaText: "Shop Now",
+        ctaLink: "/shop?category=wedding-gift-bags",
+        active: true
+      }
+    ];
+    defaultBanners.forEach(b => memDb.Banner.push(makeDoc('Banner', b)));
+
+    // 7. Blogs
+    const defaultBlogs = [
+      {
+        title: "The Ultimate Guide to Sustainable Luxury Gifting",
+        slug: "sustainable-gifting-guide",
+        excerpt: "Discover how to balance opulence with eco-consciousness. A guide to making your gift wrap as premium and reusable as the gift itself.",
+        content: `Gifting is an ancient art in India, representing honor, connection, and celebration. However, as festivals and wedding seasons roll by, the volume of waste generated by single-use wrapping paper and plastic laminates spikes dramatically.\n\nAt Giftcy, we believe luxury and sustainability are not mutually exclusive. In fact, true luxury lies in longevity, craft, and respect for our environment. Here’s how you can make your celebrations sustainable without compromising on aesthetics.`,
+        featuredImage: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800",
+        metaTitle: "Sustainable Luxury Gifting Guide — Giftcy",
+        metaDescription: "Make your gift wrap premium and reusable.",
+        author: "Aditi Sharma",
+        published: true
+      },
+      {
+        title: "Preserving Heritage: At Home with India's Master Karigars",
+        slug: "heritage-weaves-indian-karigars",
+        excerpt: "Step behind the scenes into the artisanal workshops of Gujarat and Rajasthan, where every thread tells a story of heritage and craft.",
+        content: `Behind every Giftcy bag is the steady hand of a master artisan. In the vibrant clusters of Jaipur and Ahmedabad, our karigars preserve techniques passed down through generations.\n\nFrom delicate Gota-Patti embroidery to the gold-zari weaving of Banarasi brocades, these fabrics carry India’s rich textile heritage.`,
+        featuredImage: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800",
+        metaTitle: "India's Master Karigars — Giftcy Heritage",
+        metaDescription: "Go behind the scenes of our artisanal production.",
+        author: "Rohan Verma",
+        published: true
+      }
+    ];
+    defaultBlogs.forEach(b => memDb.Blog.push(makeDoc('Blog', b)));
+
+    // 8. Bulk Inquiries
+    const defaultInquiries = [
+      {
+        name: "Rahul Khanna",
+        mobile: "9876543210",
+        email: "rahul@khannaweddings.com",
+        companyName: "Khanna Wedding Planners",
+        inquiryType: "Wedding",
+        quantity: 150,
+        message: "Need custom gold embroidered potli bags for guest favors.",
+        logoUrl: "",
+        status: "New"
+      }
+    ];
+    defaultInquiries.forEach(i => memDb.BulkInquiry.push(makeDoc('BulkInquiry', i)));
   };
 
   seedDefaultData();
@@ -334,4 +489,8 @@ export const setupMockDb = () => {
   mockModel(Coupon, 'Coupon');
   mockModel(Cart, 'Cart');
   mockModel(Review, 'Review');
+  mockModel(Settings, 'Settings');
+  mockModel(Blog, 'Blog');
+  mockModel(Banner, 'Banner');
+  mockModel(BulkInquiry, 'BulkInquiry');
 };

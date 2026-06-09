@@ -1,24 +1,53 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, Leaf, Sparkles, Truck, Heart } from "lucide-react";
+import {
+  ArrowRight,
+  Leaf,
+  Sparkles,
+  Truck,
+  Heart,
+  Shield,
+  RotateCcw,
+  Lock,
+  Package,
+  Star,
+  Crown,
+  Palette,
+  Users,
+  Instagram,
+  Mail,
+  ChevronRight,
+} from "lucide-react";
 import hero from "@/assets/hero-bag.jpg";
 import wedding from "@/assets/collection-wedding.jpg";
 import festive from "@/assets/collection-festive.jpg";
 import ret from "@/assets/collection-return.jpg";
 import birthday from "@/assets/collection-birthday.jpg";
 import fabric from "@/assets/fabric-detail.jpg";
+import weddingShowcase from "@/assets/wedding-showcase.png";
+import festivalDiwali from "@/assets/festival-diwali.png";
+import festivalEid from "@/assets/festival-eid.png";
+import festivalChristmas from "@/assets/festival-christmas.png";
 import { useProducts } from "@/lib/useProducts";
 import { ProductCard } from "@/components/ProductCard";
+import { useState, useEffect } from "react";
+import { apiClient } from "@/lib/apiClient";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Giftcy — Make Every Gift Premium" },
-      { name: "description", content: "Premium reusable fabric gift bags for weddings, festivals, and luxury Indian gifting." },
-    ],
-  }),
-  component: Home,
-});
+export const Route = createFileRoute("/")(
+  {
+    head: () => ({
+      meta: [
+        { title: "Giftcy — Make Every Gift Premium" },
+        {
+          name: "description",
+          content:
+            "Premium reusable fabric gift bags for weddings, festivals, and luxury Indian gifting.",
+        },
+      ],
+    }),
+    component: Home,
+  },
+);
 
 const collections = [
   { name: "Wedding", img: wedding, count: 42 },
@@ -28,16 +57,126 @@ const collections = [
 ];
 
 const testimonials = [
-  { q: "Absolutely premium quality — guests loved them at our wedding.", a: "Aditi & Rohan", role: "Mumbai" },
-  { q: "Beautifully crafted, eco-friendly, and so elegant. A perfect gift.", a: "Priya Sharma", role: "Delhi" },
-  { q: "Our corporate hampers felt truly luxurious thanks to Giftcy.", a: "Karthik R.", role: "Bengaluru" },
+  {
+    q: "Absolutely premium quality — guests loved them at our wedding.",
+    a: "Aditi & Rohan",
+    role: "Mumbai",
+    stars: 5,
+  },
+  {
+    q: "Beautifully crafted, eco-friendly, and so elegant. A perfect gift.",
+    a: "Priya Sharma",
+    role: "Delhi",
+    stars: 5,
+  },
+  {
+    q: "Our corporate hampers felt truly luxurious thanks to Giftcy.",
+    a: "Karthik R.",
+    role: "Bengaluru",
+    stars: 5,
+  },
+];
+
+const festivals = [
+  {
+    name: "Diwali",
+    subtitle: "Festival of Lights",
+    img: festivalDiwali,
+    desc: "Rich silk & brocade bags for sweets, dry fruits, and festive hampers.",
+  },
+  {
+    name: "Eid",
+    subtitle: "Celebrate Togetherness",
+    img: festivalEid,
+    desc: "Elegant pouches for Eidi gifts and celebration essentials.",
+  },
+  {
+    name: "Christmas",
+    subtitle: "Season of Giving",
+    img: festivalChristmas,
+    desc: "Velvet bags and totes for Secret Santa and holiday hampers.",
+  },
+];
+
+const weddingFeatures = [
+  {
+    icon: Crown,
+    title: "Premium Fabrics",
+    desc: "Silk, satin, and brocade options",
+  },
+  {
+    icon: Palette,
+    title: "Custom Colors",
+    desc: "Match your wedding theme perfectly",
+  },
+  {
+    icon: Users,
+    title: "Bulk Pricing",
+    desc: "Special rates for 100+ pieces",
+  },
+];
+
+const trustBadges = [
+  { icon: Package, label: "50,000+", desc: "Bags Delivered" },
+  { icon: Leaf, label: "100%", desc: "Reusable & Eco" },
+  { icon: Truck, label: "Pan-India", desc: "Free Shipping ₹999+" },
+  { icon: Lock, label: "Secure", desc: "Payment Gateway" },
+  { icon: RotateCcw, label: "Easy", desc: "Returns & Exchange" },
+  { icon: Shield, label: "Quality", desc: "Guaranteed" },
+];
+
+/* Instagram-style gallery images — reuse existing product/collection images */
+const instaImages = [
+  { src: wedding, likes: 342 },
+  { src: festive, likes: 289 },
+  { src: ret, likes: 421 },
+  { src: birthday, likes: 178 },
+  { src: fabric, likes: 563 },
+  { src: hero, likes: 397 },
 ];
 
 function Home() {
   const { products: displayProducts } = useProducts();
+  const [email, setEmail] = useState("");
+  const [subscribed, setSubscribed] = useState(false);
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/settings");
+        if (res?.success && res?.data) {
+          setSettings(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load settings", err);
+      }
+    })();
+  }, []);
+
+  const handleNewsletter = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      setSubscribed(true);
+      setEmail("");
+      setTimeout(() => setSubscribed(false), 4000);
+    }
+  };
+
+  const heroBadge = settings?.homepage_hero?.badge || "Festive Edit '26";
+  const heroTitle = settings?.homepage_hero?.title || "Make Every Gift Premium";
+  const heroDesc = settings?.homepage_hero?.description || "Reusable fabric gift bags, handcrafted in India for weddings, festivals, and life's most precious moments.";
+  const heroImage = settings?.homepage_hero?.image || hero;
+
+  const homepageStats = settings?.homepage_stats || [
+    { value: "50k+", label: "Bags gifted" },
+    { value: "100%", label: "Reusable" },
+    { value: "4.9★", label: "Loved by" }
+  ];
+
   return (
     <>
-      {/* HERO */}
+      {/* ═══════════════════ HERO ═══════════════════ */}
       <section className="relative overflow-hidden">
         <div className="mx-auto max-w-7xl px-5 lg:px-10 pt-10 lg:pt-20 pb-20 lg:pb-32 grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           <motion.div
@@ -48,13 +187,15 @@ function Home() {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background/60 backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-gold" />
-              <span className="text-[11px] tracking-[0.2em] uppercase text-muted-foreground">Festive Edit '26</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-muted-foreground">
+                {heroBadge}
+              </span>
             </div>
             <h1 className="serif text-5xl sm:text-6xl lg:text-7xl xl:text-8xl mt-6 leading-[0.95] text-balance">
-              Make Every Gift <em className="text-gold not-italic font-normal">Premium</em>
+              {heroTitle}
             </h1>
             <p className="mt-6 text-base lg:text-lg text-muted-foreground max-w-lg leading-relaxed">
-              Reusable fabric gift bags, handcrafted in India for weddings, festivals, and life's most precious moments.
+              {heroDesc}
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link
@@ -73,14 +214,10 @@ function Home() {
             </div>
 
             <div className="mt-12 grid grid-cols-3 gap-6 max-w-md">
-              {[
-                ["50k+", "Bags gifted"],
-                ["100%", "Reusable"],
-                ["4.9★", "Loved by"],
-              ].map(([n, l]) => (
-                <div key={l}>
-                  <div className="serif text-3xl text-foreground">{n}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{l}</div>
+              {homepageStats.map((item: any, idx: number) => (
+                <div key={idx}>
+                  <div className="serif text-3xl text-foreground">{item.value}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{item.label}</div>
                 </div>
               ))}
             </div>
@@ -93,17 +230,29 @@ function Home() {
             className="lg:col-span-6 relative"
           >
             <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden shadow-luxury">
-              <img src={hero} alt="Giftcy luxury fabric gift bag" width={1600} height={1200} className="h-full w-full object-cover" />
+              <img
+                src={heroImage}
+                alt="Giftcy luxury fabric gift bag"
+                width={1600}
+                height={1200}
+                className="h-full w-full object-cover"
+              />
             </div>
             <motion.div
               animate={{ y: [0, -12, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              transition={{
+                duration: 6,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
               className="absolute -bottom-6 -left-6 glass rounded-2xl p-5 shadow-soft hidden sm:block"
             >
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gold to-gold-soft" />
                 <div>
-                  <div className="text-xs text-muted-foreground">Handcrafted</div>
+                  <div className="text-xs text-muted-foreground">
+                    Handcrafted
+                  </div>
                   <div className="serif text-lg">in India</div>
                 </div>
               </div>
@@ -112,23 +261,38 @@ function Home() {
         </div>
       </section>
 
-      {/* MARQUEE / TRUST */}
+      {/* ═══════════════════ MARQUEE / TRUST BAR ═══════════════════ */}
       <section className="border-y border-border bg-cream py-6">
         <div className="mx-auto max-w-7xl px-5 lg:px-10 flex flex-wrap items-center justify-around gap-6 text-xs tracking-[0.2em] uppercase text-muted-foreground">
-          {["Free Shipping ₹999+", "Reusable Fabric", "Made in India", "Bulk Pricing", "Custom Printing"].map((t) => (
-            <span key={t} className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-gold" /> {t}</span>
+          {[
+            "Free Shipping ₹999+",
+            "Reusable Fabric",
+            "Made in India",
+            "Bulk Pricing",
+            "Custom Printing",
+          ].map((t) => (
+            <span key={t} className="flex items-center gap-2">
+              <span className="h-1 w-1 rounded-full bg-gold" /> {t}
+            </span>
           ))}
         </div>
       </section>
 
-      {/* COLLECTIONS */}
+      {/* ═══════════════════ COLLECTIONS ═══════════════════ */}
       <section className="mx-auto max-w-7xl px-5 lg:px-10 py-20 lg:py-28">
         <div className="flex items-end justify-between mb-10 lg:mb-14">
           <div>
-            <p className="text-[11px] tracking-[0.25em] uppercase text-gold">Shop by Occasion</p>
-            <h2 className="serif text-4xl lg:text-5xl mt-3">Curated Collections</h2>
+            <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+              Shop by Occasion
+            </p>
+            <h2 className="serif text-4xl lg:text-5xl mt-3">
+              Curated Collections
+            </h2>
           </div>
-          <Link to="/shop" className="hidden sm:inline-flex items-center gap-2 text-sm hover:text-gold">
+          <Link
+            to="/shop"
+            className="hidden sm:inline-flex items-center gap-2 text-sm hover:text-gold"
+          >
             View all <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -141,11 +305,21 @@ function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: i * 0.08 }}
             >
-              <Link to="/shop" className="group block relative aspect-[3/4] rounded-2xl overflow-hidden">
-                <img src={c.img} alt={c.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <Link
+                to="/shop"
+                className="group block relative aspect-[3/4] rounded-2xl overflow-hidden"
+              >
+                <img
+                  src={c.img}
+                  alt={c.name}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/10 to-transparent" />
                 <div className="absolute bottom-5 left-5 right-5 text-background">
-                  <p className="text-[10px] tracking-[0.2em] uppercase opacity-80">{c.count} pieces</p>
+                  <p className="text-[10px] tracking-[0.2em] uppercase opacity-80">
+                    {c.count} pieces
+                  </p>
                   <h3 className="serif text-2xl lg:text-3xl mt-1">{c.name}</h3>
                 </div>
               </Link>
@@ -154,19 +328,171 @@ function Home() {
         </div>
       </section>
 
-      {/* TRENDING PRODUCTS */}
+      {/* ═══════════════════ TRENDING PRODUCTS ═══════════════════ */}
       <section className="mx-auto max-w-7xl px-5 lg:px-10 pb-20 lg:pb-28">
         <div className="text-center mb-12">
-          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">Trending Now</p>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+            Trending Now
+          </p>
           <h2 className="serif text-4xl lg:text-5xl mt-3">Our Bestsellers</h2>
           <div className="gold-divider mx-auto mt-6 w-24" />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-8">
-          {displayProducts.slice(0, 4).map((p, i) => <ProductCard key={p.slug} product={p} index={i} />)}
+          {displayProducts
+            .slice(0, 4)
+            .map((p, i) => (
+              <ProductCard key={p.slug} product={p} index={i} />
+            ))}
         </div>
       </section>
 
-      {/* FABRIC QUALITY */}
+      {/* ═══════════════════ WEDDING COLLECTION ═══════════════════ */}
+      <section className="bg-cream py-20 lg:py-28 overflow-hidden">
+        <div className="mx-auto max-w-7xl px-5 lg:px-10 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: [0.2, 0.7, 0.2, 1] }}
+            className="relative"
+          >
+            <div className="aspect-[4/5] rounded-[2rem] overflow-hidden shadow-luxury">
+              <img
+                src={weddingShowcase}
+                alt="Luxury wedding gift bags collection"
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{
+                duration: 5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="absolute -bottom-4 -right-4 glass rounded-2xl p-4 shadow-soft hidden sm:flex items-center gap-3"
+            >
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-gold to-gold-soft flex items-center justify-center">
+                <Heart className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">
+                  Trusted by
+                </div>
+                <div className="serif text-base font-semibold">
+                  10,000+ couples
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.15 }}
+          >
+            <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+              Wedding Collection
+            </p>
+            <h2 className="serif text-4xl lg:text-5xl mt-3 text-balance">
+              Perfect for Your Big Day
+            </h2>
+            <p className="mt-5 text-muted-foreground leading-relaxed max-w-lg">
+              From shagun envelopes to trousseau packaging, our wedding
+              collection transforms every moment of your celebration into a
+              luxurious experience. Custom monograms, matching colours, and bulk
+              pricing available.
+            </p>
+
+            <div className="mt-8 space-y-5">
+              {weddingFeatures.map(({ icon: Icon, title, desc }) => (
+                <div key={title} className="flex items-start gap-4">
+                  <div className="h-11 w-11 shrink-0 rounded-xl bg-background border border-border flex items-center justify-center text-gold shadow-sm">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm">{title}</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">
+                      {desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Link
+              to="/shop"
+              className="group mt-10 inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 transition text-sm tracking-wide"
+            >
+              Explore Wedding Collection
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ FESTIVAL / SEASONAL ═══════════════════ */}
+      <section className="mx-auto max-w-7xl px-5 lg:px-10 py-20 lg:py-28">
+        <div className="text-center mb-14">
+          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+            Celebrate Every Festival
+          </p>
+          <h2 className="serif text-4xl lg:text-5xl mt-3">
+            Seasonal Collections
+          </h2>
+          <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
+            Curated gift bags for every celebration on the Indian calendar — from
+            Diwali to Christmas.
+          </p>
+          <div className="gold-divider mx-auto mt-6 w-24" />
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+          {festivals.map((f, i) => (
+            <motion.div
+              key={f.name}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: i * 0.1 }}
+            >
+              <Link
+                to="/shop"
+                className="group block rounded-2xl overflow-hidden border border-border bg-background hover-lift"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <img
+                    src={f.img}
+                    alt={`${f.name} gift bags`}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-foreground/50 to-transparent" />
+                  <div className="absolute bottom-4 left-4 text-background">
+                    <p className="text-[10px] tracking-[0.2em] uppercase opacity-80">
+                      {f.subtitle}
+                    </p>
+                    <h3 className="serif text-2xl mt-0.5">{f.name}</h3>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {f.desc}
+                  </p>
+                  <span className="inline-flex items-center gap-1 mt-3 text-xs font-medium text-gold">
+                    Shop {f.name}{" "}
+                    <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══════════════════ FABRIC QUALITY ═══════════════════ */}
       <section className="bg-cream py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-5 lg:px-10 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           <motion.div
@@ -176,20 +502,47 @@ function Home() {
             transition={{ duration: 0.8 }}
             className="aspect-[4/5] rounded-[2rem] overflow-hidden shadow-soft"
           >
-            <img src={fabric} alt="Premium fabric detail" loading="lazy" className="h-full w-full object-cover" />
+            <img
+              src={fabric}
+              alt="Premium fabric detail"
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
           </motion.div>
           <div>
-            <p className="text-[11px] tracking-[0.25em] uppercase text-gold">The Giftcy Promise</p>
-            <h2 className="serif text-4xl lg:text-5xl mt-3">Crafted from the finest fabrics.</h2>
+            <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+              The Giftcy Promise
+            </p>
+            <h2 className="serif text-4xl lg:text-5xl mt-3">
+              Crafted from the finest fabrics.
+            </h2>
             <p className="mt-5 text-muted-foreground leading-relaxed max-w-lg">
-              Each Giftcy bag is sewn from premium reusable fabric — soft to the touch, beautifully finished, and made to be loved long after the gift is opened.
+              Each Giftcy bag is sewn from premium reusable fabric — soft to the
+              touch, beautifully finished, and made to be loved long after the
+              gift is opened.
             </p>
             <div className="mt-10 grid sm:grid-cols-2 gap-6">
               {[
-                { i: Leaf, t: "Sustainable", d: "100% reusable, plastic-free packaging." },
-                { i: Sparkles, t: "Hand-Finished", d: "Detailed stitching, premium hardware." },
-                { i: Truck, t: "Pan-India", d: "Fast shipping with free returns ₹999+." },
-                { i: Heart, t: "Loved by 50k+", d: "Trusted across weddings & gifting." },
+                {
+                  i: Leaf,
+                  t: "Sustainable",
+                  d: "100% reusable, plastic-free packaging.",
+                },
+                {
+                  i: Sparkles,
+                  t: "Hand-Finished",
+                  d: "Detailed stitching, premium hardware.",
+                },
+                {
+                  i: Truck,
+                  t: "Pan-India",
+                  d: "Fast shipping with free returns ₹999+.",
+                },
+                {
+                  i: Heart,
+                  t: "Loved by 50k+",
+                  d: "Trusted across weddings & gifting.",
+                },
               ].map(({ i: Icon, t, d }) => (
                 <div key={t} className="flex gap-3">
                   <div className="h-10 w-10 shrink-0 rounded-full bg-background border border-border flex items-center justify-center text-gold">
@@ -197,7 +550,9 @@ function Home() {
                   </div>
                   <div>
                     <div className="font-medium">{t}</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">{d}</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">
+                      {d}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -206,11 +561,15 @@ function Home() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
+      {/* ═══════════════════ TESTIMONIALS ═══════════════════ */}
       <section className="mx-auto max-w-7xl px-5 lg:px-10 py-20 lg:py-28">
         <div className="text-center mb-14">
-          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">Loved by gifters</p>
-          <h2 className="serif text-4xl lg:text-5xl mt-3">Kind words, kept close.</h2>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+            Loved by gifters
+          </p>
+          <h2 className="serif text-4xl lg:text-5xl mt-3">
+            Kind words, kept close.
+          </h2>
         </div>
         <div className="grid lg:grid-cols-3 gap-6">
           {testimonials.map((t, i) => (
@@ -222,28 +581,179 @@ function Home() {
               transition={{ duration: 0.6, delay: i * 0.1 }}
               className="rounded-2xl border border-border bg-background p-8 hover-lift"
             >
-              <div className="text-gold text-2xl serif">"</div>
-              <blockquote className="serif text-xl leading-snug mt-2">{t.q}</blockquote>
+              <div className="flex gap-0.5 mb-3">
+                {Array.from({ length: t.stars }).map((_, si) => (
+                  <Star
+                    key={si}
+                    className="h-4 w-4 fill-gold text-gold"
+                  />
+                ))}
+              </div>
+              <blockquote className="serif text-xl leading-snug">
+                "{t.q}"
+              </blockquote>
               <figcaption className="mt-6 pt-4 border-t border-border text-sm">
                 <div className="font-medium">{t.a}</div>
-                <div className="text-muted-foreground text-xs mt-0.5">{t.role}</div>
+                <div className="text-muted-foreground text-xs mt-0.5">
+                  {t.role}
+                </div>
               </figcaption>
             </motion.figure>
           ))}
         </div>
       </section>
 
-      {/* CTA */}
+      {/* ═══════════════════ INSTAGRAM FEED ═══════════════════ */}
+      <section className="py-20 lg:py-28 bg-cream">
+        <div className="mx-auto max-w-7xl px-5 lg:px-10">
+          <div className="text-center mb-14">
+            <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+              Follow Us
+            </p>
+            <h2 className="serif text-4xl lg:text-5xl mt-3">
+              @giftcy.in
+            </h2>
+            <p className="mt-3 text-muted-foreground text-sm">
+              Tag us in your gifting moments for a chance to be featured.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
+            {instaImages.map((img, i) => (
+              <motion.a
+                key={i}
+                href="https://instagram.com/giftcy.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.06 }}
+                className="group relative aspect-square rounded-xl overflow-hidden"
+              >
+                <img
+                  src={img.src}
+                  alt={`Giftcy Instagram post ${i + 1}`}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/40 transition-colors duration-300 flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-3 text-white">
+                    <span className="flex items-center gap-1 text-sm font-medium">
+                      <Heart className="h-4 w-4 fill-white" /> {img.likes}
+                    </span>
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <a
+              href="https://instagram.com/giftcy.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-foreground/20 hover:border-foreground transition text-sm tracking-wide"
+            >
+              <Instagram className="h-4 w-4" />
+              Follow on Instagram
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ TRUST BADGES ═══════════════════ */}
+      <section className="mx-auto max-w-7xl px-5 lg:px-10 py-16 lg:py-20">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6 lg:gap-4">
+          {trustBadges.map((badge, i) => (
+            <motion.div
+              key={badge.label}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: i * 0.06 }}
+              className="text-center group"
+            >
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-cream border border-border flex items-center justify-center text-gold group-hover:bg-gold group-hover:text-white group-hover:border-gold transition-colors duration-300">
+                <badge.icon className="h-6 w-6" />
+              </div>
+              <div className="serif text-xl font-semibold mt-3">
+                {badge.label}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {badge.desc}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══════════════════ NEWSLETTER ═══════════════════ */}
+      <section className="mx-auto max-w-7xl px-5 lg:px-10 pb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="rounded-[2rem] p-10 lg:p-16 text-center relative overflow-hidden"
+          style={{ background: "var(--gradient-cream)" }}
+        >
+          <div className="absolute inset-0 opacity-30" style={{ background: "var(--gradient-gold)" }} />
+          <div className="relative">
+            <div className="mx-auto h-14 w-14 rounded-2xl bg-background/80 backdrop-blur border border-border flex items-center justify-center text-gold mb-6">
+              <Mail className="h-6 w-6" />
+            </div>
+            <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
+              Stay Updated
+            </p>
+            <h2 className="serif text-3xl lg:text-4xl mt-3 text-balance">
+              Get 10% off your first order
+            </h2>
+            <p className="mt-3 text-muted-foreground text-sm max-w-md mx-auto">
+              Subscribe to our newsletter for early access to new collections,
+              festive drops, and exclusive offers.
+            </p>
+            <form
+              onSubmit={handleNewsletter}
+              className="mt-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+            >
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                required
+                className="flex-1 px-5 py-3.5 rounded-full bg-background border border-border text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition"
+              />
+              <button
+                type="submit"
+                className="px-7 py-3.5 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition tracking-wide"
+              >
+                {subscribed ? "✓ Subscribed!" : "Subscribe"}
+              </button>
+            </form>
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              No spam, ever. Unsubscribe anytime.
+            </p>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* ═══════════════════ CTA ═══════════════════ */}
       <section className="mx-auto max-w-7xl px-5 lg:px-10 pb-24">
         <div className="rounded-[2rem] bg-gradient-to-br from-foreground to-foreground/85 text-background p-10 lg:p-20 text-center relative overflow-hidden">
-          <div className="absolute inset-0 opacity-20" style={{ background: "var(--gradient-gold)" }} />
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{ background: "var(--gradient-gold)" }}
+          />
           <div className="relative">
-            <p className="text-[11px] tracking-[0.25em] uppercase text-gold-soft">Bulk & Custom</p>
+            <p className="text-[11px] tracking-[0.25em] uppercase text-gold-soft">
+              Bulk & Custom
+            </p>
             <h2 className="serif text-4xl lg:text-6xl mt-4 text-balance">
               Weddings, brands, and grand occasions.
             </h2>
             <p className="mt-5 text-background/70 max-w-xl mx-auto">
-              Custom-printed bags, monograms, and bulk pricing for 50–50,000 units. We make your gifting unforgettable.
+              Custom-printed bags, monograms, and bulk pricing for 50–50,000
+              units. We make your gifting unforgettable.
             </p>
             <Link
               to="/bulk"

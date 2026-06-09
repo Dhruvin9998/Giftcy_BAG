@@ -4,6 +4,7 @@ import p3 from "@/assets/product-3.jpg";
 import p4 from "@/assets/product-4.jpg";
 
 export type Product = {
+  id?: string;
   slug: string;
   name: string;
   category: string;

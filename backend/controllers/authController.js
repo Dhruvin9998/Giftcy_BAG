@@ -125,6 +125,60 @@ export const verifyOTP = async (req, res, next) => {
 };
 
 /**
+ * @desc    Resend OTP verification code (with 60s cooldown)
+ * @route   POST /api/v1/auth/resend-otp
+ * @access  Public
+ */
+export const resendOTP = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return next(new ApiError(400, 'Please provide your email address'));
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return next(new ApiError(404, 'No account found with this email address'));
+    }
+
+    if (user.isVerified) {
+      return next(new ApiError(400, 'This account is already verified'));
+    }
+
+    // Rate-limit: check if OTP was sent less than 60 seconds ago
+    if (user.otpExpires) {
+      const otpSentAt = new Date(user.otpExpires.getTime() - 10 * 60 * 1000);
+      const secondsSinceSent = (Date.now() - otpSentAt.getTime()) / 1000;
+      if (secondsSinceSent < 60) {
+        const waitSeconds = Math.ceil(60 - secondsSinceSent);
+        return next(new ApiError(429, `Please wait ${waitSeconds} seconds before requesting a new code`));
+      }
+    }
+
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    try {
+      await sendOTPEmail(user.email, otp);
+    } catch (err) {
+      return next(new ApiError(500, `Failed to send verification email. Details: ${err.message}`));
+    }
+
+    new ApiResponse(
+      200,
+      { email: user.email },
+      'A new verification code has been sent to your email.'
+    ).send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @desc    Authenticate user & get token
  * @route   POST /api/v1/auth/login
  * @access  Public
@@ -153,8 +207,18 @@ export const login = async (req, res, next) => {
       user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
 
-      await sendOTPEmail(user.email, otp);
-      return next(new ApiError(403, 'Your account is not verified yet. A new verification code has been sent to your email.'));
+      try {
+        await sendOTPEmail(user.email, otp);
+      } catch (err) {
+        console.error('Failed to send OTP email during login:', err.message);
+      }
+
+      // Return a structured response instead of an error so the frontend can handle the OTP flow
+      return new ApiResponse(
+        200,
+        { requiresVerification: true, email: user.email },
+        'Your account is not verified yet. A verification code has been sent to your email.'
+      ).send(res);
     }
 
     sendTokenResponse(user, 200, res, 'Logged in successfully.');
@@ -331,7 +395,7 @@ export const getProfile = async (req, res, next) => {
  */
 export const updateProfile = async (req, res, next) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, password } = req.body;
 
     const user = await User.findById(req.user.id);
 
@@ -344,6 +408,10 @@ export const updateProfile = async (req, res, next) => {
         return next(new ApiError(400, 'Email address already in use'));
       }
       user.email = email;
+    }
+
+    if (password) {
+      user.password = password;
     }
 
     await user.save();

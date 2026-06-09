@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { Building2, Crown, MessageCircle, Upload } from "lucide-react";
+import { apiClient } from "@/lib/apiClient";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/bulk")({
   head: () => ({
@@ -12,6 +15,59 @@ export const Route = createFileRoute("/bulk")({
 });
 
 function Bulk() {
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [qty, setQty] = useState("");
+  const [occasion, setOccasion] = useState("");
+  const [message, setMessage] = useState("");
+  const [artworkUrl, setArtworkUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email || !phone || !qty || !occasion || !message) {
+      return toast.error("Please fill in all required fields (Name, Email, Phone, Quantity, Occasion, and Message).");
+    }
+    setSubmitting(true);
+
+    try {
+      const res = await apiClient.post("/bulk-inquiries/submit", {
+        name,
+        mobile: phone,
+        email,
+        companyName: company,
+        inquiryType: occasion,
+        quantity: Number(qty),
+        message,
+        logoUrl: artworkUrl || null
+      });
+      if (res?.success) {
+        toast.success("Bulk order inquiry submitted successfully! Our team will contact you in 24 hours.");
+        setName("");
+        setCompany("");
+        setEmail("");
+        setPhone("");
+        setQty("");
+        setOccasion("");
+        setMessage("");
+        setArtworkUrl("");
+      } else {
+        toast.error(res.message || "Failed to submit inquiry.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const mockUpload = () => {
+    setArtworkUrl("https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=800");
+    toast.success("Mock artwork logo uploaded successfully!");
+  };
+
   return (
     <>
       <section className="bg-cream py-20 lg:py-28 border-b border-border">
@@ -46,30 +102,38 @@ function Bulk() {
           <h2 className="serif text-4xl">Start your inquiry</h2>
           <p className="text-muted-foreground mt-2">Fill in your details — our team responds within 24 hours.</p>
 
-          <form className="mt-10 grid sm:grid-cols-2 gap-5">
-            <Field label="Full name" placeholder="Your name" />
-            <Field label="Brand / Company" placeholder="Optional" />
-            <Field label="Email" type="email" placeholder="you@email.com" />
-            <Field label="Phone" placeholder="+91 99999 99999" />
-            <Field label="Quantity" placeholder="e.g. 500" />
-            <Field label="Occasion" placeholder="Wedding, Diwali, Corporate..." />
+          <form onSubmit={handleSubmit} className="mt-10 grid sm:grid-cols-2 gap-5">
+            <Field label="Full name" placeholder="Your name" required value={name} onChange={(e) => setName(e.target.value)} />
+            <Field label="Brand / Company" placeholder="Optional" value={company} onChange={(e) => setCompany(e.target.value)} />
+            <Field label="Email" type="email" placeholder="you@email.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Field label="Phone / Mobile" required placeholder="+91 99999 99999" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Field label="Quantity" placeholder="e.g. 500" required value={qty} onChange={(e) => setQty(e.target.value)} />
+            <Field label="Occasion" placeholder="Wedding, Diwali, Corporate..." required value={occasion} onChange={(e) => setOccasion(e.target.value)} />
 
             <div className="sm:col-span-2">
               <label className="text-xs tracking-[0.2em] uppercase text-muted-foreground">Upload artwork / logo</label>
-              <div className="mt-2 border border-dashed border-border rounded-2xl p-8 text-center bg-background hover:border-gold transition cursor-pointer">
+              <div onClick={mockUpload} className="mt-2 border border-dashed border-border rounded-2xl p-8 text-center bg-background hover:border-gold transition cursor-pointer">
                 <Upload className="h-6 w-6 mx-auto text-gold" />
-                <p className="mt-2 text-sm">Drop your file here or click to upload</p>
-                <p className="text-xs text-muted-foreground mt-1">PNG, JPG, PDF · up to 10MB</p>
+                {artworkUrl ? (
+                  <div className="text-sm text-emerald-600 mt-2 font-medium">Artwork uploaded successfully! (logo_mockup.png)</div>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm">Drop your file here or click to upload</p>
+                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG, PDF · up to 10MB</p>
+                  </>
+                )}
               </div>
             </div>
 
             <div className="sm:col-span-2">
               <label className="text-xs tracking-[0.2em] uppercase text-muted-foreground">Tell us about your project</label>
-              <textarea rows={5} className="mt-2 w-full px-5 py-4 rounded-2xl bg-background border border-border focus:outline-none focus:border-gold" />
+              <textarea rows={5} required value={message} onChange={(e) => setMessage(e.target.value)} className="mt-2 w-full px-5 py-4 rounded-2xl bg-background border border-border focus:outline-none focus:border-gold" />
             </div>
 
             <div className="sm:col-span-2 flex flex-wrap gap-3 pt-2">
-              <button className="px-7 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 text-sm">Submit Inquiry</button>
+              <button type="submit" disabled={submitting} className="px-7 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 text-sm disabled:opacity-60">
+                {submitting ? "Submitting Inquiry..." : "Submit Inquiry"}
+              </button>
               <a href="https://wa.me/919999999999" className="px-7 py-3.5 rounded-full bg-[#25D366] text-white inline-flex items-center gap-2 text-sm">
                 <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
               </a>

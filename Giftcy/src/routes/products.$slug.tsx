@@ -4,8 +4,10 @@ import { ChevronDown, ExternalLink, Heart, Minus, Plus, Share2, ShoppingBag, Tru
 import { getProduct as getStaticProduct, products, type Product } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/components/CartContext";
+import { useWishlist } from "@/components/WishlistContext";
 import { apiClient } from "@/lib/apiClient";
 import { dbToProduct, type DBProduct } from "@/lib/useProducts";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/products/$slug")({
   loader: async ({ params }) => {
@@ -43,12 +45,23 @@ export const Route = createFileRoute("/products/$slug")({
 function PDP() {
   const { product } = Route.useLoaderData() as { product: Product };
   const { add, setOpen } = useCart();
+  const { toggle, has } = useWishlist();
+  const isWishlisted = has(product.id);
   const [size, setSize] = useState(product.sizes[1] ?? product.sizes[0]);
   const [color, setColor] = useState(product.colors[0]);
   const [qty, setQty] = useState(1);
   const off = Math.round(((product.mrp - product.price) / product.mrp) * 100);
 
   const related = products.filter((p) => p.slug !== product.slug).slice(0, 4);
+
+  const handleShare = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Product link copied to clipboard!");
+    } else {
+      toast.error("Clipboard copy not supported on this browser.");
+    }
+  };
 
   return (
     <>
@@ -166,8 +179,22 @@ function PDP() {
             >
               Buy Now
             </button>
-            <button className="h-12 w-12 rounded-full border border-border flex items-center justify-center hover:text-gold" aria-label="Wishlist"><Heart className="h-4 w-4" /></button>
-            <button className="h-12 w-12 rounded-full border border-border flex items-center justify-center" aria-label="Share"><Share2 className="h-4 w-4" /></button>
+            <button
+              onClick={() => toggle(product)}
+              className={`h-12 w-12 rounded-full border flex items-center justify-center transition-all ${
+                isWishlisted ? "border-gold text-gold bg-gold/5" : "border-border hover:border-foreground text-muted-foreground"
+              }`}
+              aria-label="Wishlist"
+            >
+              <Heart className={`h-4 w-4 ${isWishlisted ? "fill-gold" : ""}`} />
+            </button>
+            <button
+              onClick={handleShare}
+              className="h-12 w-12 rounded-full border border-border flex items-center justify-center hover:border-foreground text-muted-foreground hover:text-foreground transition-all"
+              aria-label="Share"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Delivery */}

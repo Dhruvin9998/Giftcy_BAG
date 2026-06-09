@@ -54,6 +54,50 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    shortDescription: {
+      type: String,
+      default: '',
+    },
+    bulkPrice: {
+      type: Number,
+      default: 0,
+    },
+    sku: {
+      type: String,
+      default: '',
+    },
+    lowStockAlert: {
+      type: Number,
+      default: 10,
+    },
+    status: {
+      type: String,
+      enum: ['Draft', 'Published'],
+      default: 'Published',
+    },
+    colors: {
+      type: [String],
+      default: ['Ivory', 'Gold', 'Blush', 'Red', 'Green'],
+    },
+    sizes: {
+      type: [String],
+      default: ['Small', 'Medium', 'Large'],
+    },
+    packQuantities: {
+      type: [Number],
+      default: [1, 5, 10, 25, 50, 100],
+    },
+    specifications: {
+      fabric: { type: String, default: 'Cotton-Blend' },
+      dimensions: { type: String, default: '10 x 12 inch' },
+      weight: { type: String, default: '120g' },
+      handle: { type: String, default: 'Cotton Rope' },
+      care: { type: String, default: 'Hand Wash Only' },
+    },
+    video: {
+      type: String,
+      default: '',
+    },
     ratings: {
       type: Number,
       default: 0,

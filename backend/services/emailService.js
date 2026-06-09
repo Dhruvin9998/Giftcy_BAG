@@ -5,7 +5,7 @@ const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
-    secure: Number(process.env.SMTP_PORT) === 465, // true for 465, false for other ports like 587
+    secure: Number(process.env.SMTP_PORT) === 465,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -15,17 +15,18 @@ const createTransporter = () => {
 
 // Send email helper
 const sendEmail = async (options) => {
-  // If credentials are mock, skip sending email and just log it
+  // Only simulate if SMTP is truly not configured
   if (
+    !process.env.SMTP_HOST ||
     !process.env.SMTP_USER ||
     process.env.SMTP_USER === 'your_smtp_username_here' ||
-    process.env.SMTP_USER === 'mockuser'
+    process.env.SMTP_USER === 'your_gmail@gmail.com'
   ) {
-    console.log('--- EMAIL SIMULATION ---');
-    console.log(`To: ${options.to}`);
-    console.log(`Subject: ${options.subject}`);
-    console.log(`Body: ${options.text || 'HTML Content'}`);
-    console.log('------------------------');
+    console.log('⚠️  SMTP not configured — EMAIL SIMULATION:');
+    console.log(`   To: ${options.to}`);
+    console.log(`   Subject: ${options.subject}`);
+    if (options.text) console.log(`   Body: ${options.text}`);
+    console.log('   → Configure SMTP_USER and SMTP_PASS in .env to send real emails.');
     return true;
   }
 
@@ -40,31 +41,73 @@ const sendEmail = async (options) => {
   };
 
   const info = await transporter.sendMail(mailOptions);
-  console.log(`Email sent: ${info.messageId}`);
+  console.log(`✅ Email sent: ${info.messageId}`);
   return info;
 };
 
 // Send OTP verification email
 export const sendOTPEmail = async (email, otp) => {
-  const subject = 'Verify Your Giftcy Account - OTP';
+  const subject = '🔐 Your Giftcy Verification Code';
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-      <h2 style="color: #d4a373; text-align: center;">Welcome to Giftcy!</h2>
-      <p>Thank you for signing up. To complete your verification, please use the following OTP (One-Time Password):</p>
-      <div style="background-color: #fefae0; padding: 15px; text-align: center; border-radius: 6px; font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #606c38; margin: 20px 0;">
-        ${otp}
-      </div>
-      <p style="font-size: 13px; color: #666;">This code is valid for 10 minutes. If you did not sign up for a Giftcy account, please ignore this email.</p>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 12px; text-align: center; color: #aaa;">&copy; 2026 Giftcy Inc. All rights reserved.</p>
-    </div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin: 0; padding: 0; background-color: #f8f5f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f5f0; padding: 40px 20px;">
+        <tr>
+          <td align="center">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 520px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.08);">
+              
+              <!-- Header -->
+              <tr>
+                <td style="background: linear-gradient(135deg, #d4a373 0%, #c8956b 100%); padding: 40px 40px 30px; text-align: center;">
+                  <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: 2px;">GIFTCY</h1>
+                  <p style="margin: 8px 0 0; font-size: 13px; color: rgba(255,255,255,0.85); letter-spacing: 1px;">LUXURY GIFTING</p>
+                </td>
+              </tr>
+
+              <!-- Body -->
+              <tr>
+                <td style="padding: 40px;">
+                  <h2 style="margin: 0 0 8px; font-size: 22px; color: #2d2a26; font-weight: 600;">Verify your email</h2>
+                  <p style="margin: 0 0 28px; font-size: 14px; color: #6b6560; line-height: 1.6;">
+                    Thank you for joining Giftcy! Enter this verification code to complete your registration:
+                  </p>
+
+                  <!-- OTP Code Box -->
+                  <div style="background: linear-gradient(135deg, #fefae0 0%, #f5f0e0 100%); border: 2px dashed #d4a373; border-radius: 12px; padding: 24px; text-align: center; margin: 0 0 28px;">
+                    <span style="font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #2d2a26; font-family: 'Courier New', monospace;">${otp}</span>
+                  </div>
+
+                  <p style="margin: 0 0 6px; font-size: 13px; color: #9b9590;">
+                    ⏱ This code expires in <strong style="color: #d4a373;">10 minutes</strong>.
+                  </p>
+                  <p style="margin: 0; font-size: 13px; color: #9b9590;">
+                    If you didn't create a Giftcy account, please ignore this email.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #faf8f5; padding: 24px 40px; border-top: 1px solid #ebe6df; text-align: center;">
+                  <p style="margin: 0; font-size: 11px; color: #b5afa8;">&copy; 2026 Giftcy Inc. All rights reserved.</p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `;
 
   await sendEmail({
     to: email,
     subject,
     html,
-    text: `Your verification code is: ${otp}. This code is valid for 10 minutes.`,
+    text: `Your Giftcy verification code is: ${otp}. This code is valid for 10 minutes.`,
   });
 };
 

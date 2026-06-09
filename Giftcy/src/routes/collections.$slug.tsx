@@ -1,35 +1,80 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, ArrowLeft } from "lucide-react";
 import { useProducts } from "@/lib/useProducts";
 import { ProductCard } from "@/components/ProductCard";
 
-export const Route = createFileRoute("/shop")({
-  head: () => ({
-    meta: [
-      { title: "Shop Premium Gift Bags — Giftcy" },
-      { name: "description", content: "Browse premium reusable fabric gift bags. Wedding, festive, return gifts, potli bags, and custom printed bags." },
-    ],
-  }),
-  component: Shop,
+// Import collection assets
+import weddingImg from "@/assets/collection-wedding.jpg";
+import festiveImg from "@/assets/collection-festive.jpg";
+import returnImg from "@/assets/collection-return.jpg";
+import birthdayImg from "@/assets/collection-birthday.jpg";
+import fabricImg from "@/assets/fabric-detail.jpg";
+
+export const Route = createFileRoute("/collections/$slug")({
+  head: ({ params }) => {
+    const title = getCollectionMeta(params.slug).title;
+    return {
+      meta: [
+        { title: `${title} — Giftcy` },
+        { name: "description", content: `Explore our premium range of handcrafted reusable fabric bags for ${title}.` },
+      ],
+    };
+  },
+  component: CollectionPage,
 });
 
-const occasions = ["All", "Wedding", "Birthday", "Festive", "Corporate"];
+// Meta Helper mapping slug to human-readable names and images
+function getCollectionMeta(slug: string) {
+  const norm = slug.toLowerCase();
+  switch (norm) {
+    case "wedding":
+    case "wedding-gift-bags":
+      return { title: "Wedding Gift Bags", img: weddingImg, desc: "An opulent collection of shagun envelopes, potlis, and premium trousseau packaging to match your big day perfectly." };
+    case "festive":
+    case "festive-bags":
+      return { title: "Festive Collection", img: festiveImg, desc: "Celebrate Diwali, Eid, Christmas, and traditional festivals with luxurious silk, brocade, and velvet gift bags." };
+    case "return-gifts":
+    case "return-gift-bags":
+      return { title: "Return Gift Bags", img: returnImg, desc: "Delight your guests with elegant, reusable favors designed for weddings, anniversaries, and housewarming ceremonies." };
+    case "birthday":
+    case "birthday-bags":
+      return { title: "Birthday & Favors", img: birthdayImg, desc: "Vibrant, playful, and premium fabric pouches and sacks for birthdays, baby showers, and intimate get-togethers." };
+    case "potli-bags":
+      return { title: "Luxury Potli Bags", img: festiveImg, desc: "Handcrafted traditional drawstrings finished with ornate tassels, pearls, and embroidery for ethnic celebrations." };
+    case "custom-printed-bags":
+      return { title: "Custom Printed Bags", img: fabricImg, desc: "Bespoke linen and cotton totes personalized with custom foils, monograms, and logos for corporate and family events." };
+    default:
+      return { title: "Curated Collection", img: fabricImg, desc: "Handcrafted reusable fabric gift bags designed to elevate your gifting experience." };
+  }
+}
+
 const colors = ["Ivory", "Gold", "Blush", "Beige", "Cream"];
 const sizes = ["S", "M", "L", "XL"];
 
-function Shop() {
-  const [occasion, setOccasion] = useState("All");
+function CollectionPage() {
+  const { slug } = Route.useParams();
+  const meta = getCollectionMeta(slug);
+  const { products, loading } = useProducts();
+
+  // Filters State
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [maxPrice, setMaxPrice] = useState<number>(1000);
   const [sort, setSort] = useState<string>("featured");
-  const { products, loading } = useProducts();
 
-  // Filter products based on active filters
-  const filtered = products.filter((p) => {
-    // 1. Occasion Filter
-    if (occasion !== "All" && p.occasion !== occasion) return false;
+  // Filtering Logic
+  const filteredProducts = products.filter((p) => {
+    // 1. Slug occurence / Category match
+    const normalizedSlug = slug.toLowerCase();
+    const isCategoryMatch = p.category.toLowerCase().includes(normalizedSlug.replace("-bags", "")) ||
+                            normalizedSlug.includes(p.category.toLowerCase().replace(" bags", "").replace(" gift", "").replace(" printed", ""));
+    const isOccasionMatch = p.occasion.toLowerCase() === normalizedSlug || 
+                            (normalizedSlug === "wedding-gift-bags" && p.occasion.toLowerCase() === "wedding") ||
+                            (normalizedSlug === "festive-bags" && p.occasion.toLowerCase() === "festive") ||
+                            (normalizedSlug === "birthday-bags" && p.occasion.toLowerCase() === "birthday");
+    
+    if (!isCategoryMatch && !isOccasionMatch) return false;
 
     // 2. Color Filter
     if (selectedColor && !p.colors.includes(selectedColor)) return false;
@@ -43,8 +88,8 @@ function Shop() {
     return true;
   });
 
-  // Sort products
-  const sorted = [...filtered].sort((a, b) => {
+  // Sorting Logic
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sort === "low-high") return a.price - b.price;
     if (sort === "high-low") return b.price - a.price;
     if (sort === "newest") return b.badge === "New" ? 1 : -1;
@@ -53,43 +98,44 @@ function Shop() {
 
   return (
     <>
-      <section className="bg-cream py-16 lg:py-24 border-b border-border">
-        <div className="mx-auto max-w-7xl px-5 lg:px-10 text-center">
-          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">The Collection</p>
-          <h1 className="serif text-5xl lg:text-7xl mt-3">Premium Gift Bags</h1>
-          <p className="mt-4 max-w-xl mx-auto text-muted-foreground">
-            Discover our full range of handcrafted reusable fabric bags for every occasion.
+      {/* Dynamic Curated Hero Banner */}
+      <section className="relative h-[40vh] sm:h-[50vh] min-h-[300px] flex items-center justify-center overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0 bg-black/45 z-10" />
+        <img
+          src={meta.img}
+          alt={meta.title}
+          className="absolute inset-0 w-full h-full object-cover select-none"
+        />
+
+        {/* Banner Details Card */}
+        <div className="relative mx-auto max-w-4xl px-5 text-center text-white z-20 space-y-4">
+          <Link
+            to="/shop"
+            className="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-gold hover:text-white transition"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Shop
+          </Link>
+          <h1 className="serif text-4xl sm:text-6xl tracking-wide">{meta.title}</h1>
+          <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-200/90 leading-relaxed font-light">
+            {meta.desc}
           </p>
         </div>
       </section>
 
+      {/* Main Catalog Section */}
       <section className="mx-auto max-w-7xl px-5 lg:px-10 py-12 lg:py-16 grid lg:grid-cols-[260px_1fr] gap-10">
-        {/* SIDEBAR */}
+        
+        {/* FILTER SIDEBAR */}
         <aside className="lg:sticky lg:top-28 lg:self-start space-y-8">
           <div>
             <h3 className="serif text-xl mb-4 flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4 text-gold" /> Filters
+              <SlidersHorizontal className="h-4 w-4 text-gold" /> Filter Bags
             </h3>
             <div className="gold-divider mb-6" />
           </div>
 
-          <FilterGroup title="Occasion">
-            <div className="space-y-2">
-              {occasions.map((o) => (
-                <label key={o} className="flex items-center gap-3 cursor-pointer text-sm">
-                  <input
-                    type="radio"
-                    name="occasion"
-                    checked={occasion === o}
-                    onChange={() => setOccasion(o)}
-                    className="accent-foreground"
-                  />
-                  {o}
-                </label>
-              ))}
-            </div>
-          </FilterGroup>
-
+          {/* Color filter */}
           <FilterGroup title="Color">
             <div className="flex flex-wrap gap-2">
               {colors.map((c) => (
@@ -108,6 +154,7 @@ function Shop() {
             </div>
           </FilterGroup>
 
+          {/* Size filter */}
           <FilterGroup title="Size">
             <div className="flex flex-wrap gap-2">
               {sizes.map((s) => (
@@ -126,6 +173,7 @@ function Shop() {
             </div>
           </FilterGroup>
 
+          {/* Price filter */}
           <FilterGroup title="Price Limit">
             <input
               type="range"
@@ -144,10 +192,9 @@ function Shop() {
           </FilterGroup>
 
           {/* Reset Filters */}
-          {(occasion !== "All" || selectedColor || selectedSize || maxPrice < 1000) && (
+          {(selectedColor || selectedSize || maxPrice < 1000) && (
             <button
               onClick={() => {
-                setOccasion("All");
                 setSelectedColor(null);
                 setSelectedSize(null);
                 setMaxPrice(1000);
@@ -159,10 +206,12 @@ function Shop() {
           )}
         </aside>
 
-        {/* GRID */}
+        {/* PRODUCT GRID */}
         <div>
           <div className="flex items-center justify-between mb-8">
-            <p className="text-sm text-muted-foreground">{sorted.length} product{sorted.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-muted-foreground">
+              {sortedProducts.length} product{sortedProducts.length !== 1 ? "s" : ""} found
+            </p>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
@@ -177,14 +226,16 @@ function Shop() {
 
           {loading ? (
             <div className="py-24 text-center text-muted-foreground">Loading products...</div>
-          ) : sorted.length === 0 ? (
+          ) : sortedProducts.length === 0 ? (
             <div className="py-24 text-center max-w-md mx-auto">
               <p className="serif text-xl">No products match your filters.</p>
               <p className="text-sm text-muted-foreground mt-2">Try adjusting your filters or resetting the price sliders.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-8 animate-in fade-in duration-300">
-              {sorted.map((p, i) => <ProductCard key={`${p.slug}-${i}`} product={p} index={i} />)}
+              {sortedProducts.map((p, i) => (
+                <ProductCard key={`${p.slug}-${i}`} product={p} index={i} />
+              ))}
             </div>
           )}
         </div>

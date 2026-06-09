@@ -27,6 +27,19 @@ const reviewSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please enter a review comment'],
     },
+    status: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Approved',
+    },
+    photos: {
+      type: [String],
+      default: [],
+    },
+    videos: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Tag, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,15 +11,31 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
 });
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if ((window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 function CartPage() {
   const { items, remove, updateQty, subtotal, coupon, applyCoupon, removeCoupon, discount, total, clear } = useCart();
   const { user } = useAuth();
+  const nav = useNavigate();
   const shipping = total > 999 || total === 0 ? 0 : 79;
   const grand = total + shipping;
   const [code, setCode] = useState("");
   const [applying, setApplying] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "Razorpay">("COD");
   const [form, setForm] = useState({ name: "", email: user?.email ?? "", phone: "", address: "" });
 
   const apply = async () => {
@@ -30,13 +46,22 @@ function CartPage() {
     if (r.ok) setCode("");
   };
 
+  const handleProceedCheckout = () => {
+    if (!user) {
+      toast.error("Please sign in to complete your checkout");
+      nav({ to: "/auth" });
+      return;
+    }
+    setShowCheckout(true);
+  };
+
   const place = async () => {
     if (!form.name || !form.email || !form.address) return toast.error("Please fill all checkout fields");
     if (!form.phone) return toast.error("Phone number is required for checkout");
     setPlacing(true);
     try {
       const orderItems = items.map((i) => ({
-        product: i.product.id || i.product.slug,
+        product: i.product.id,
         quantity: i.qty,
       }));
 
@@ -49,23 +74,82 @@ function CartPage() {
           country: "India",
           phone: form.phone,
         },
-        paymentMethod: "COD",
+        paymentMethod,
         couponCode: coupon?.code ?? null,
         shippingPrice: shipping,
         taxPrice: 0,
       };
 
       const response = await apiClient.post("/orders", payload);
-      if (response?.success) {
-        toast.success("Order placed successfully! We'll be in touch.");
-        clear();
-        setShowCheckout(false);
+      if (response?.success && response?.data) {
+        if (paymentMethod === "COD") {
+          toast.success("Order placed successfully! We'll be in touch.");
+          await clear();
+          setShowCheckout(false);
+          nav({ to: "/account" });
+        } else if (paymentMethod === "Razorpay") {
+          const { razorpayOrderId, amount, currency } = response.data;
+          const loaded = await loadRazorpayScript();
+          if (!loaded) {
+            setPlacing(false);
+            return toast.error("Failed to load Razorpay payment gateway script.");
+          }
+
+          const options = {
+            key: (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || "rzp_test_mockkey",
+            amount,
+            currency,
+            name: "Giftcy",
+            description: "Premium Fabric Gift Bags",
+            order_id: razorpayOrderId,
+            prefill: {
+              name: form.name,
+              email: form.email,
+              contact: form.phone,
+            },
+            theme: {
+              color: "#c8956b",
+            },
+            handler: async (resp: any) => {
+              try {
+                setPlacing(true);
+                const verifyRes = await apiClient.post("/orders/verify-razorpay", {
+                  razorpayOrderId: resp.razorpay_order_id,
+                  razorpayPaymentId: resp.razorpay_payment_id,
+                  signature: resp.razorpay_signature,
+                });
+
+                if (verifyRes?.success) {
+                  toast.success("Payment verified & Order completed successfully!");
+                  await clear();
+                  setShowCheckout(false);
+                  nav({ to: "/account" });
+                } else {
+                  toast.error(verifyRes.message || "Failed to verify payment signature");
+                }
+              } catch (err: any) {
+                toast.error(err.message || "Something went wrong during payment verification");
+              } finally {
+                setPlacing(false);
+              }
+            },
+            modal: {
+              ondismiss: () => {
+                setPlacing(false);
+                toast.warning("Payment checkout cancelled.");
+              },
+            },
+          };
+
+          const rzp = new (window as any).Razorpay(options);
+          rzp.open();
+        }
       } else {
-        toast.error(response.message || "Failed to place order");
+        toast.error(response?.message || "Failed to place order");
+        setPlacing(false);
       }
     } catch (error: any) {
       toast.error(error.message || "Something went wrong while placing the order");
-    } finally {
       setPlacing(false);
     }
   };
@@ -141,7 +225,7 @@ function CartPage() {
               <span className="serif text-lg">Total</span>
               <span className="serif text-2xl">₹{grand}</span>
             </div>
-            <button onClick={() => setShowCheckout(true)} className="mt-6 w-full py-4 rounded-full bg-foreground text-background hover:bg-foreground/90 transition text-sm tracking-wide">
+            <button onClick={handleProceedCheckout} className="mt-6 w-full py-4 rounded-full bg-foreground text-background hover:bg-foreground/90 transition text-sm tracking-wide">
               Proceed to Checkout
             </button>
             <p className="text-xs text-muted-foreground text-center mt-3">Secure checkout · COD available</p>
@@ -151,7 +235,7 @@ function CartPage() {
 
       {showCheckout && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-5" onClick={() => setShowCheckout(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-background rounded-3xl p-7 lg:p-9 w-full max-w-md shadow-luxury">
+          <div onClick={(e) => e.stopPropagation()} className="bg-background rounded-3xl p-7 lg:p-9 w-full max-w-md shadow-luxury max-h-[92vh] overflow-y-auto animate-in zoom-in duration-200">
             <div className="flex items-center justify-between mb-5">
               <h3 className="serif text-2xl">Checkout</h3>
               <button onClick={() => setShowCheckout(false)}><X className="h-5 w-5" /></button>
@@ -159,15 +243,40 @@ function CartPage() {
             <div className="space-y-3">
               <input className="i" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               <input className="i" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <input className="i" placeholder="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input className="i" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               <textarea rows={3} className="i" placeholder="Shipping address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              
+              {/* Payment Method */}
+              <div className="mt-4 pt-3 border-t border-border">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-2">Payment Method</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("COD")}
+                    className={`py-2.5 px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
+                      paymentMethod === "COD" ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"
+                    }`}
+                  >
+                    Cash on Delivery
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("Razorpay")}
+                    className={`py-2.5 px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
+                      paymentMethod === "Razorpay" ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"
+                    }`}
+                  >
+                    Online (Razorpay)
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="mt-5 flex justify-between items-baseline">
+            <div className="mt-6 flex justify-between items-baseline">
               <span className="text-sm text-muted-foreground">Total</span>
               <span className="serif text-2xl">₹{grand}</span>
             </div>
-            <button onClick={place} disabled={placing} className="mt-5 w-full py-3.5 rounded-full bg-foreground text-background text-sm disabled:opacity-60">
-              {placing ? "Placing order…" : "Place order (COD)"}
+            <button onClick={place} disabled={placing} className="mt-5 w-full py-3.5 rounded-full bg-foreground text-background text-sm font-medium tracking-wider uppercase disabled:opacity-60">
+              {placing ? "Processing…" : `Pay ₹${grand}`}
             </button>
             <style>{`.i{width:100%;padding:.75rem 1rem;border:1px solid hsl(var(--border));border-radius:1rem;background:transparent;font-size:.875rem;outline:none}.i:focus{border-color:var(--gold)}`}</style>
           </div>
@@ -180,3 +289,4 @@ function CartPage() {
 const Row = ({ l, v }: { l: string; v: string }) => (
   <div className="flex justify-between"><span className="text-muted-foreground">{l}</span><span>{v}</span></div>
 );
+

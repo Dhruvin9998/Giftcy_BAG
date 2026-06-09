@@ -9,13 +9,17 @@ export type AuthUser = {
   isVerified: boolean;
 };
 
+type SignInResult = { error?: string; requiresVerification?: boolean; email?: string };
+
 type AuthCtx = {
   user: AuthUser | null;
   isAdmin: boolean;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signIn: (email: string, password: string) => Promise<SignInResult>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error?: string }>;
   verifyOTP: (email: string, otp: string) => Promise<{ error?: string }>;
+  resendOTP: (email: string) => Promise<{ error?: string; message?: string }>;
+  googleSignIn: (credential: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   claimFirstAdmin: () => Promise<{ ok: boolean; message: string }>;
   refreshRole: () => Promise<void>;
@@ -72,6 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiClient.post("/auth/login", { email, password });
       if (response?.success && response?.data) {
+        // Check if user needs OTP verification
+        if (response.data.requiresVerification) {
+          return { requiresVerification: true, email: response.data.email };
+        }
+
         const { token, user: u } = response.data;
         localStorage.setItem("token", token);
         const mappedUser: AuthUser = {
@@ -126,6 +135,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendOTP: AuthCtx["resendOTP"] = async (email) => {
+    try {
+      const response = await apiClient.post("/auth/resend-otp", { email });
+      if (response?.success) {
+        return { message: response.message || "A new verification code has been sent." };
+      }
+      return { error: response.message || "Failed to resend code" };
+    } catch (error: any) {
+      return { error: error.message || "Failed to resend verification code" };
+    }
+  };
+
+  const googleSignIn: AuthCtx["googleSignIn"] = async (credential) => {
+    try {
+      const response = await apiClient.post("/auth/google-login", { credential });
+      if (response?.success && response?.data) {
+        const { token, user: u } = response.data;
+        localStorage.setItem("token", token);
+        const mappedUser: AuthUser = {
+          id: u._id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          isVerified: u.isVerified,
+        };
+        setUser(mappedUser);
+        setIsAdmin(u.role === "admin");
+        return {};
+      }
+      return { error: response.message || "Google sign-in failed" };
+    } catch (error: any) {
+      return { error: error.message || "Google authentication failed" };
+    }
+  };
+
   const signOut = async () => {
     signOutLocal();
   };
@@ -159,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ user, isAdmin, loading, signIn, signUp, verifyOTP, signOut, claimFirstAdmin, refreshRole }}>
+    <Ctx.Provider value={{ user, isAdmin, loading, signIn, signUp, verifyOTP, resendOTP, googleSignIn, signOut, claimFirstAdmin, refreshRole }}>
       {children}
     </Ctx.Provider>
   );
