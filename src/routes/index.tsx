@@ -7,7 +7,7 @@ import festive from "@/assets/collection-festive.jpg";
 import ret from "@/assets/collection-return.jpg";
 import birthday from "@/assets/collection-birthday.jpg";
 import fabric from "@/assets/fabric-detail.jpg";
-import { products } from "@/lib/products";
+import { useProducts } from "@/lib/useProducts";
 import { ProductCard } from "@/components/ProductCard";
 
 export const Route = createFileRoute("/")({
@@ -34,6 +34,7 @@ const testimonials = [
 ];
 
 function Home() {
+  const { products: displayProducts } = useProducts();
   return (
     <>
       {/* HERO */}
@@ -161,7 +162,7 @@ function Home() {
           <div className="gold-divider mx-auto mt-6 w-24" />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-8">
-          {products.map((p, i) => <ProductCard key={p.slug} product={p} index={i} />)}
+          {displayProducts.slice(0, 4).map((p, i) => <ProductCard key={p.slug} product={p} index={i} />)}
         </div>
       </section>
 

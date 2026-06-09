@@ -2,8 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Edit, ImagePlus, LogOut, Package, Plus, Tag, Trash2, TrendingUp, Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthContext";
+import { apiClient } from "@/lib/apiClient";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin — Giftcy" }] }),
@@ -83,13 +83,24 @@ function Dashboard() {
   const [stats, setStats] = useState({ products: 0, coupons: 0, orders: 0, revenue: 0 });
   useEffect(() => {
     (async () => {
-      const [p, c, o] = await Promise.all([
-        supabase.from("products").select("id", { count: "exact", head: true }),
-        supabase.from("coupons").select("id", { count: "exact", head: true }),
-        supabase.from("orders").select("total"),
-      ]);
-      const revenue = (o.data ?? []).reduce((s: number, r: { total: number }) => s + Number(r.total), 0);
-      setStats({ products: p.count ?? 0, coupons: c.count ?? 0, orders: (o.data ?? []).length, revenue });
+      try {
+        const [dashRes, couponRes] = await Promise.all([
+          apiClient.get("/admin/dashboard"),
+          apiClient.get("/coupons"),
+        ]);
+        if (dashRes?.success && dashRes?.data) {
+          const { stats: ds } = dashRes.data;
+          const couponsCount = couponRes?.success && couponRes?.data ? couponRes.data.length : 0;
+          setStats({
+            products: ds.productsCount ?? 0,
+            coupons: couponsCount,
+            orders: ds.ordersCount ?? 0,
+            revenue: ds.totalSales ?? 0,
+          });
+        }
+      } catch (err) {
+        console.error("Error loading dashboard stats", err);
+      }
     })();
   }, []);
   const cards = [
@@ -112,16 +123,40 @@ function Dashboard() {
 
 /* ---------- Products ---------- */
 type DBProduct = {
-  id: string; slug: string; name: string; category: string; occasion: string;
-  description: string; price: number; mrp: number; discount_percent: number;
-  image_url: string | null; badge: string | null; colors: string[]; sizes: string[];
-  stock: number; active: boolean; amazon_url: string | null; flipkart_url: string | null;
+  _id: string;
+  slug: string;
+  name: string;
+  category: any;
+  occasion: string;
+  description: string;
+  price: number;
+  compareAtPrice: number;
+  images: string[];
+  badge: string | null;
+  colors: string[];
+  sizes: string[];
+  stock: number;
+  active: boolean;
+  amazon_url: string | null;
+  flipkart_url: string | null;
 };
 
 const emptyProduct: Partial<DBProduct> = {
-  name: "", slug: "", category: "Gift Bags", occasion: "Wedding", description: "",
-  price: 0, mrp: 0, discount_percent: 0, image_url: "", badge: null,
-  colors: [], sizes: [], stock: 100, active: true, amazon_url: "", flipkart_url: "",
+  name: "",
+  slug: "",
+  category: "",
+  occasion: "Wedding",
+  description: "",
+  price: 0,
+  compareAtPrice: 0,
+  images: [],
+  badge: null,
+  colors: [],
+  sizes: [],
+  stock: 100,
+  active: true,
+  amazon_url: "",
+  flipkart_url: "",
 };
 
 function ProductsAdmin() {
@@ -129,16 +164,31 @@ function ProductsAdmin() {
   const [editing, setEditing] = useState<Partial<DBProduct> | null>(null);
 
   const load = async () => {
-    const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
-    setRows((data ?? []) as DBProduct[]);
+    try {
+      const res = await apiClient.get("/products?limit=100");
+      if (res?.success && res?.data?.products) {
+        setRows(res.data.products);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load products");
+    }
   };
   useEffect(() => { load(); }, []);
 
   const del = async (id: string) => {
     if (!confirm("Delete this product?")) return;
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Deleted"); load();
+    try {
+      const res = await apiClient.delete(`/products/${id}`);
+      if (res?.success) {
+        toast.success("Deleted");
+        load();
+      } else {
+        toast.error(res.message || "Failed to delete");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete product");
+    }
   };
 
   return (
@@ -166,31 +216,33 @@ function ProductsAdmin() {
               <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No products yet. Click "Add product" to start.</td></tr>
             )}
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-border">
+              <tr key={r._id} className="border-t border-border">
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    {r.image_url ? (
-                      <img src={r.image_url} alt="" className="h-12 w-12 rounded-lg object-cover bg-cream" />
+                    {r.images?.[0] ? (
+                      <img src={r.images[0]} alt="" className="h-12 w-12 rounded-lg object-cover bg-cream" />
                     ) : <div className="h-12 w-12 rounded-lg bg-cream grid place-items-center"><ImagePlus className="h-4 w-4 text-muted-foreground" /></div>}
                     <div>
                       <p className="font-medium">{r.name}</p>
-                      <p className="text-xs text-muted-foreground">{r.category} · {r.occasion}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {typeof r.category === "object" ? r.category.name : r.category} · {r.occasion}
+                      </p>
                     </div>
                   </div>
                 </td>
                 <td className="p-4">
                   <p>₹{r.price}</p>
-                  {Number(r.mrp) > Number(r.price) && <p className="text-xs text-muted-foreground line-through">₹{r.mrp}</p>}
+                  {Number(r.compareAtPrice) > Number(r.price) && <p className="text-xs text-muted-foreground line-through">₹{r.compareAtPrice}</p>}
                 </td>
                 <td className="p-4">{r.stock}</td>
                 <td className="p-4">
-                  <span className={`px-2 py-1 rounded-full text-xs ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
-                    {r.active ? "Active" : "Hidden"}
+                  <span className={`px-2 py-1 rounded-full text-xs ${r.active !== false ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                    {r.active !== false ? "Active" : "Hidden"}
                   </span>
                 </td>
                 <td className="p-4 text-right">
                   <button onClick={() => setEditing(r)} className="p-2 hover:text-gold"><Edit className="h-4 w-4" /></button>
-                  <button onClick={() => del(r.id)} className="p-2 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => del(r._id)} className="p-2 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                 </td>
               </tr>
             ))}
@@ -205,82 +257,104 @@ function ProductsAdmin() {
 
 function ProductForm({ initial, onClose, onSaved }: { initial: Partial<DBProduct>; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<Partial<DBProduct>>(initial);
-  const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<{ _id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof DBProduct>(k: K, v: DBProduct[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-  const upload = async (file: File) => {
-    setUploading(true);
-    const path = `${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "-")}`;
-    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: false });
-    if (error) { setUploading(false); return toast.error(error.message); }
-    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-    set("image_url", data.publicUrl);
-    setUploading(false);
-    toast.success("Image uploaded");
-  };
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/categories");
+        if (res?.success && res?.data) {
+          setCategories(res.data);
+          if (!form.category && res.data.length > 0) {
+            set("category", res.data[0]._id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load categories", err);
+      }
+    })();
+  }, []);
 
   const discount = useMemo(() => {
-    const mrp = Number(form.mrp ?? 0), price = Number(form.price ?? 0);
+    const mrp = Number(form.compareAtPrice ?? 0), price = Number(form.price ?? 0);
     return mrp > 0 && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  }, [form.mrp, form.price]);
+  }, [form.compareAtPrice, form.price]);
 
   const save = async () => {
     if (!form.name || !form.price) return toast.error("Name and price are required");
     setSaving(true);
+
+    const categoryId = typeof form.category === "object" ? form.category._id : form.category;
+    if (!categoryId) {
+      setSaving(false);
+      return toast.error("Please select a category");
+    }
+
     const payload = {
       name: form.name,
       slug: form.slug || slugify(form.name!),
-      category: form.category || "Gift Bags",
+      category: categoryId,
       occasion: form.occasion || "Wedding",
       description: form.description || "",
       price: Number(form.price),
-      mrp: Number(form.mrp ?? form.price),
-      discount_percent: discount,
-      image_url: form.image_url || null,
-      badge: form.badge || null,
-      colors: typeof form.colors === "string" ? (form.colors as string).split(",").map((s) => s.trim()).filter(Boolean) : (form.colors ?? []),
-      sizes: typeof form.sizes === "string" ? (form.sizes as string).split(",").map((s) => s.trim()).filter(Boolean) : (form.sizes ?? []),
+      compareAtPrice: Number(form.compareAtPrice ?? form.price),
+      images: form.images?.length ? form.images : [form.images?.[0] || "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800"].filter(Boolean),
       stock: Number(form.stock ?? 100),
+      isBestSeller: form.badge === "Bestseller",
+      isNewArrival: form.badge === "New",
       active: form.active ?? true,
       amazon_url: form.amazon_url || null,
       flipkart_url: form.flipkart_url || null,
     };
-    const { error } = form.id
-      ? await supabase.from("products").update(payload).eq("id", form.id)
-      : await supabase.from("products").insert(payload);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success(form.id ? "Updated" : "Created");
-    onSaved();
+
+    try {
+      const res = form._id
+        ? await apiClient.put(`/products/${form._id}`, payload)
+        : await apiClient.post("/products", payload);
+      setSaving(false);
+      if (res?.success) {
+        toast.success(form._id ? "Updated" : "Created");
+        onSaved();
+      } else {
+        toast.error(res.message || "Failed to save product");
+      }
+    } catch (err: any) {
+      setSaving(false);
+      toast.error(err.message || "Failed to save product");
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-foreground/40 p-0 lg:p-6">
       <div className="bg-background w-full lg:max-w-3xl rounded-t-3xl lg:rounded-3xl shadow-luxury max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-background border-b border-border p-5 flex items-center justify-between">
-          <h3 className="serif text-2xl">{form.id ? "Edit product" : "New product"}</h3>
+          <h3 className="serif text-2xl">{form._id ? "Edit product" : "New product"}</h3>
           <button onClick={onClose}><X className="h-5 w-5" /></button>
         </div>
         <div className="p-6 grid lg:grid-cols-2 gap-5">
           <Field label="Name"><input className="i" value={form.name ?? ""} onChange={(e) => set("name", e.target.value)} /></Field>
           <Field label="Slug (URL)"><input className="i" placeholder="auto" value={form.slug ?? ""} onChange={(e) => set("slug", e.target.value)} /></Field>
-          <Field label="Category"><input className="i" value={form.category ?? ""} onChange={(e) => set("category", e.target.value)} /></Field>
+          <Field label="Category">
+            <select className="i" value={typeof form.category === "object" ? form.category._id : form.category} onChange={(e) => set("category", e.target.value)}>
+              {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+            </select>
+          </Field>
           <Field label="Occasion">
             <select className="i" value={form.occasion ?? "Wedding"} onChange={(e) => set("occasion", e.target.value)}>
               {["Wedding", "Birthday", "Festive", "Corporate", "Anniversary"].map((o) => <option key={o}>{o}</option>)}
             </select>
           </Field>
           <Field label="Price (₹)"><input type="number" className="i" value={form.price ?? 0} onChange={(e) => set("price", Number(e.target.value))} /></Field>
-          <Field label="MRP (₹)"><input type="number" className="i" value={form.mrp ?? 0} onChange={(e) => set("mrp", Number(e.target.value))} /></Field>
+          <Field label="MRP / Compare Price (₹)"><input type="number" className="i" value={form.compareAtPrice ?? 0} onChange={(e) => set("compareAtPrice", Number(e.target.value))} /></Field>
           <Field label={`Discount (auto): ${discount}% off`}><input disabled className="i opacity-60" value={`${discount}%`} /></Field>
           <Field label="Stock"><input type="number" className="i" value={form.stock ?? 100} onChange={(e) => set("stock", Number(e.target.value))} /></Field>
           <Field label="Badge">
-            <select className="i" value={form.badge ?? ""} onChange={(e) => set("badge", (e.target.value || null) as DBProduct["badge"])}>
+            <select className="i" value={form.badge ?? ""} onChange={(e) => set("badge", e.target.value || null)}>
               <option value="">None</option><option>Bestseller</option><option>New</option><option>Sale</option>
             </select>
           </Field>
@@ -298,19 +372,11 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Partial<DBProduct
             <textarea rows={3} className="i min-h-[90px]" value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} />
           </Field>
 
-          <Field label="Product image" full>
-            <div className="flex items-center gap-4">
-              {form.image_url ? (
-                <img src={form.image_url} alt="" className="h-24 w-24 rounded-xl object-cover bg-cream" />
-              ) : <div className="h-24 w-24 rounded-xl bg-cream grid place-items-center"><ImagePlus className="h-6 w-6 text-muted-foreground" /></div>}
-              <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border text-sm hover:bg-cream">
-                <Upload className="h-4 w-4" /> {uploading ? "Uploading…" : "Upload image"}
-              </button>
-              {form.image_url && <button type="button" onClick={() => set("image_url", "")} className="text-sm text-muted-foreground hover:text-destructive">Remove</button>}
-            </div>
-            <input className="i mt-3" placeholder="Or paste image URL" value={form.image_url ?? ""} onChange={(e) => set("image_url", e.target.value)} />
+          <Field label="Product Image URL" full>
+            <input className="i" placeholder="Paste image URL (e.g. Unsplash URL)" value={form.images?.[0] ?? ""} onChange={(e) => set("images", [e.target.value])} />
+            {form.images?.[0] && (
+              <img src={form.images[0]} alt="" className="mt-3 h-24 w-24 rounded-xl object-cover bg-cream" />
+            )}
           </Field>
         </div>
         <div className="sticky bottom-0 bg-background border-t border-border p-5 flex justify-end gap-3">
@@ -335,15 +401,21 @@ function Field({ label, full, children }: { label: string; full?: boolean; child
 }
 
 /* ---------- Coupons ---------- */
-type Coupon = { id: string; code: string; discount_type: string; discount_value: number; min_order: number; usage_limit: number | null; used_count: number; expires_at: string | null; active: boolean };
+type Coupon = { _id: string; code: string; discountType: string; discountAmount: number; minCartAmount: number; usageLimit: number | null; usedCount: number; expiryDate: string | null; active: boolean };
 
 function CouponsAdmin() {
   const [rows, setRows] = useState<Coupon[]>([]);
   const [form, setForm] = useState({ code: "", discount_type: "percent", discount_value: 10, min_order: 0, expires_at: "", active: true });
 
   const load = async () => {
-    const { data } = await supabase.from("coupons").select("*").order("created_at", { ascending: false });
-    setRows((data ?? []) as Coupon[]);
+    try {
+      const res = await apiClient.get("/coupons");
+      if (res?.success && res?.data) {
+        setRows(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -351,27 +423,42 @@ function CouponsAdmin() {
     e.preventDefault();
     const payload = {
       code: form.code.trim().toUpperCase(),
-      discount_type: form.discount_type,
-      discount_value: Number(form.discount_value),
-      min_order: Number(form.min_order),
-      expires_at: form.expires_at || null,
+      discountType: form.discount_type === "percent" ? "percentage" : "flat",
+      discountAmount: Number(form.discount_value),
+      minCartAmount: Number(form.min_order),
+      expiryDate: form.expires_at ? new Date(form.expires_at) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       active: form.active,
     };
-    const { error } = await supabase.from("coupons").insert(payload);
-    if (error) return toast.error(error.message);
-    toast.success("Coupon created");
-    setForm({ code: "", discount_type: "percent", discount_value: 10, min_order: 0, expires_at: "", active: true });
-    load();
+    try {
+      const res = await apiClient.post("/coupons", payload);
+      if (res?.success) {
+        toast.success("Coupon created");
+        setForm({ code: "", discount_type: "percent", discount_value: 10, min_order: 0, expires_at: "", active: true });
+        load();
+      } else {
+        toast.error(res.message || "Failed to create coupon");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create coupon");
+    }
   };
 
   const toggle = async (c: Coupon) => {
-    await supabase.from("coupons").update({ active: !c.active }).eq("id", c.id);
-    load();
+    try {
+      const res = await apiClient.put(`/coupons/${c._id}/toggle`, {});
+      if (res?.success) load();
+    } catch (err) {
+      console.error(err);
+    }
   };
   const del = async (id: string) => {
     if (!confirm("Delete coupon?")) return;
-    await supabase.from("coupons").delete().eq("id", id);
-    load();
+    try {
+      const res = await apiClient.delete(`/coupons/${id}`);
+      if (res?.success) load();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -398,18 +485,18 @@ function CouponsAdmin() {
           <tbody>
             {rows.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No coupons yet.</td></tr>}
             {rows.map((c) => (
-              <tr key={c.id} className="border-t border-border">
+              <tr key={c._id} className="border-t border-border">
                 <td className="p-4 font-mono font-semibold">{c.code}</td>
-                <td className="p-4">{c.discount_type === "percent" ? `${c.discount_value}%` : `₹${c.discount_value}`}</td>
-                <td className="p-4">₹{c.min_order}</td>
-                <td className="p-4">{c.used_count}{c.usage_limit ? `/${c.usage_limit}` : ""}</td>
-                <td className="p-4">{c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "—"}</td>
+                <td className="p-4">{c.discountType === "percentage" ? `${c.discountAmount}%` : `₹${c.discountAmount}`}</td>
+                <td className="p-4">₹{c.minCartAmount}</td>
+                <td className="p-4">{c.usedCount ?? 0}{c.usageLimit ? `/${c.usageLimit}` : ""}</td>
+                <td className="p-4">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : "—"}</td>
                 <td className="p-4">
                   <button onClick={() => toggle(c)} className={`px-2 py-1 rounded-full text-xs ${c.active ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
                     {c.active ? "Active" : "Inactive"}
                   </button>
                 </td>
-                <td className="p-4 text-right"><button onClick={() => del(c.id)} className="p-2 hover:text-destructive"><Trash2 className="h-4 w-4" /></button></td>
+                <td className="p-4 text-right"><button onClick={() => del(c._id)} className="p-2 hover:text-destructive"><Trash2 className="h-4 w-4" /></button></td>
               </tr>
             ))}
           </tbody>
@@ -420,19 +507,34 @@ function CouponsAdmin() {
 }
 
 /* ---------- Orders ---------- */
-type Order = { id: string; customer_name: string; email: string; phone: string | null; items: { name: string; qty: number; price: number }[]; subtotal: number; discount: number; total: number; coupon_code: string | null; status: string; created_at: string };
+type Order = { _id: string; user: { name: string; email: string }; orderItems: { name: string; quantity: number; price: number }[]; itemsPrice: number; discountPrice: number; totalPrice: number; couponCode?: string | null; status: string; createdAt: string };
 
 function OrdersAdmin() {
   const [rows, setRows] = useState<Order[]>([]);
   const load = async () => {
-    const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
-    setRows((data ?? []) as unknown as Order[]);
+    try {
+      const res = await apiClient.get("/admin/orders");
+      if (res?.success && res?.data) {
+        setRows(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
   useEffect(() => { load(); }, []);
 
   const setStatus = async (id: string, status: string) => {
-    await supabase.from("orders").update({ status }).eq("id", id);
-    load();
+    try {
+      const res = await apiClient.put(`/admin/orders/${id}/status`, { status });
+      if (res?.success) {
+        toast.success("Order status updated");
+        load();
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update status");
+    }
   };
 
   return (
@@ -446,17 +548,23 @@ function OrdersAdmin() {
           <tbody>
             {rows.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No orders yet.</td></tr>}
             {rows.map((o) => (
-              <tr key={o.id} className="border-t border-border align-top">
-                <td className="p-4"><p className="font-medium">{o.customer_name}</p><p className="text-xs text-muted-foreground">{o.email}</p>{o.phone && <p className="text-xs text-muted-foreground">{o.phone}</p>}</td>
-                <td className="p-4">{(o.items ?? []).map((i, k) => <div key={k} className="text-xs">{i.qty}× {i.name}</div>)}</td>
-                <td className="p-4"><p className="font-semibold">₹{o.total}</p>{o.discount > 0 && <p className="text-xs text-gold">-₹{o.discount}</p>}</td>
-                <td className="p-4">{o.coupon_code ?? "—"}</td>
+              <tr key={o._id} className="border-t border-border align-top">
                 <td className="p-4">
-                  <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="px-3 py-1.5 rounded-full border border-border text-xs bg-transparent">
-                    {["pending", "confirmed", "shipped", "delivered", "cancelled"].map((s) => <option key={s}>{s}</option>)}
+                  <p className="font-medium">{o.user?.name || "Guest"}</p>
+                  <p className="text-xs text-muted-foreground">{o.user?.email || ""}</p>
+                </td>
+                <td className="p-4">{(o.orderItems ?? []).map((i, k) => <div key={k} className="text-xs">{i.quantity}× {i.name}</div>)}</td>
+                <td className="p-4">
+                  <p className="font-semibold">₹{o.totalPrice}</p>
+                  {o.discountPrice > 0 && <p className="text-xs text-gold">-₹{o.discountPrice}</p>}
+                </td>
+                <td className="p-4">{o.couponCode ?? "—"}</td>
+                <td className="p-4">
+                  <select value={o.status} onChange={(e) => setStatus(o._id, e.target.value)} className="px-3 py-1.5 rounded-full border border-border text-xs bg-transparent">
+                    {["Processing", "Shipped", "Delivered", "Cancelled"].map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </td>
-                <td className="p-4 text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</td>
+                <td className="p-4 text-xs text-muted-foreground">{new Date(o.createdAt).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>

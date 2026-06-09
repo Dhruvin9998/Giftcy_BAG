@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { Product } from "@/lib/products";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/apiClient";
 
 export type CartItem = { product: Product; qty: number; size?: string; color?: string };
 export type AppliedCoupon = { code: string; discount: number };
@@ -55,12 +55,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const applyCoupon = useCallback(async (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return { ok: false, message: "Enter a code" };
-    const { data, error } = await supabase.rpc("validate_coupon", { _code: trimmed, _subtotal: subtotal });
-    if (error) return { ok: false, message: error.message };
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row?.valid) return { ok: false, message: row?.message ?? "Invalid coupon" };
-    setCoupon({ code: trimmed.toUpperCase(), discount: Number(row.discount) });
-    return { ok: true, message: row.message ?? "Coupon applied" };
+    try {
+      const response = await apiClient.get(`/coupons/validate/${trimmed}?subtotal=${subtotal}`);
+      if (response?.success && response?.data) {
+        const couponData = response.data;
+        let calculatedDiscount = 0;
+        if (couponData.discountType === "percentage" || couponData.discountType === "percent") {
+          calculatedDiscount = (subtotal * couponData.discountAmount) / 100;
+        } else {
+          calculatedDiscount = couponData.discountAmount;
+        }
+        calculatedDiscount = Math.min(calculatedDiscount, subtotal);
+        setCoupon({
+          code: trimmed.toUpperCase(),
+          discount: calculatedDiscount,
+        });
+        return { ok: true, message: response.message || "Coupon applied" };
+      }
+      return { ok: false, message: response.message || "Invalid coupon" };
+    } catch (error: any) {
+      return { ok: false, message: error.message || "Failed to apply coupon" };
+    }
   }, [subtotal]);
 
   const removeCoupon = () => setCoupon(null);

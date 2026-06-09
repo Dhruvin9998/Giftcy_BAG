@@ -3,7 +3,7 @@ import { Minus, Plus, Tag, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/components/CartContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/apiClient";
 import { useAuth } from "@/components/AuthContext";
 
 export const Route = createFileRoute("/cart")({
@@ -32,25 +32,42 @@ function CartPage() {
 
   const place = async () => {
     if (!form.name || !form.email || !form.address) return toast.error("Please fill all checkout fields");
+    if (!form.phone) return toast.error("Phone number is required for checkout");
     setPlacing(true);
-    const { error } = await supabase.from("orders").insert({
-      user_id: user?.id ?? null,
-      customer_name: form.name,
-      email: form.email,
-      phone: form.phone || null,
-      address: { line: form.address },
-      items: items.map((i) => ({ slug: i.product.slug, name: i.product.name, qty: i.qty, price: i.product.price, size: i.size, color: i.color })),
-      subtotal,
-      discount,
-      total: grand,
-      coupon_code: coupon?.code ?? null,
-      status: "pending",
-    });
-    setPlacing(false);
-    if (error) return toast.error(error.message);
-    toast.success("Order placed! We'll be in touch.");
-    clear();
-    setShowCheckout(false);
+    try {
+      const orderItems = items.map((i) => ({
+        product: i.product.id || i.product.slug,
+        quantity: i.qty,
+      }));
+
+      const payload = {
+        orderItems,
+        shippingAddress: {
+          address: form.address,
+          city: "Default City",
+          postalCode: "000000",
+          country: "India",
+          phone: form.phone,
+        },
+        paymentMethod: "COD",
+        couponCode: coupon?.code ?? null,
+        shippingPrice: shipping,
+        taxPrice: 0,
+      };
+
+      const response = await apiClient.post("/orders", payload);
+      if (response?.success) {
+        toast.success("Order placed successfully! We'll be in touch.");
+        clear();
+        setShowCheckout(false);
+      } else {
+        toast.error(response.message || "Failed to place order");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong while placing the order");
+    } finally {
+      setPlacing(false);
+    }
   };
 
   return (

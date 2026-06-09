@@ -1,39 +1,39 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "./apiClient";
 import { products as staticProducts, type Product } from "./products";
 
 export type DBProduct = {
-  id: string;
+  _id: string;
   slug: string;
   name: string;
-  category: string;
-  occasion: string;
+  category: { _id: string; name: string; slug: string } | string;
+  occasion?: string;
   description: string;
   price: number;
-  mrp: number;
-  discount_percent: number;
-  image_url: string | null;
-  badge: string | null;
-  colors: string[];
-  sizes: string[];
+  compareAtPrice: number;
+  images: string[];
   stock: number;
-  active: boolean;
-  amazon_url: string | null;
-  flipkart_url: string | null;
-  created_at: string;
+  isBestSeller?: boolean;
+  isNewArrival?: boolean;
+  isFeatured?: boolean;
+  active?: boolean;
+  amazon_url?: string | null;
+  flipkart_url?: string | null;
+  createdAt: string;
 };
 
 export const dbToProduct = (d: DBProduct): Product => ({
+  id: d._id,
   slug: d.slug,
   name: d.name,
-  category: d.category,
-  occasion: d.occasion,
+  category: typeof d.category === "object" ? d.category.name : d.category,
+  occasion: d.occasion || "Wedding",
   price: Number(d.price),
-  mrp: Number(d.mrp),
-  image: d.image_url || staticProducts[0].image,
-  badge: (d.badge as Product["badge"]) ?? undefined,
-  colors: d.colors?.length ? d.colors : ["Ivory"],
-  sizes: d.sizes?.length ? d.sizes : ["M"],
+  mrp: Number(d.compareAtPrice || d.price),
+  image: d.images?.[0] || staticProducts[0].image,
+  badge: d.isBestSeller ? "Bestseller" : d.isNewArrival ? "New" : undefined,
+  colors: ["Ivory", "Gold", "Blush"],
+  sizes: ["S", "M", "L"],
   description: d.description,
 });
 
@@ -44,20 +44,25 @@ export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true 
 
   const load = async () => {
     setLoading(true);
-    let q = supabase.from("products").select("*").order("created_at", { ascending: false });
-    if (opts.onlyActive) q = q.eq("active", true);
-    const { data } = await q;
-    const rows = (data ?? []) as DBProduct[];
-    setDbList(rows);
-    const mapped = rows.map(dbToProduct);
-    // Merge: DB products first, then static (skip static if slug exists in db)
-    const dbSlugs = new Set(rows.map((r) => r.slug));
-    const merged = [...mapped, ...staticProducts.filter((p) => !dbSlugs.has(p.slug))];
-    setList(merged);
-    setLoading(false);
+    try {
+      const response = await apiClient.get("/products?limit=100");
+      if (response?.success && response?.data?.products) {
+        const rows = response.data.products as DBProduct[];
+        setDbList(rows);
+        const mapped = rows.map(dbToProduct);
+        // Merge: DB products first, then static (skip static if slug exists in db)
+        const dbSlugs = new Set(rows.map((r) => r.slug));
+        const merged = [...mapped, ...staticProducts.filter((p) => !dbSlugs.has(p.slug))];
+        setList(merged);
+      }
+    } catch (err) {
+      console.error("Error loading products", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [opts.onlyActive]);
+  useEffect(() => { load(); }, [opts.onlyActive]);
 
   return { products: list, dbProducts: dbList, loading, reload: load };
 }

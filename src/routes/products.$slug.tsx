@@ -1,13 +1,24 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronDown, ExternalLink, Heart, Minus, Plus, Share2, ShoppingBag, Truck } from "lucide-react";
-import { getProduct, products, type Product } from "@/lib/products";
+import { getProduct as getStaticProduct, products, type Product } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/components/CartContext";
+import { apiClient } from "@/lib/apiClient";
+import { dbToProduct, type DBProduct } from "@/lib/useProducts";
 
 export const Route = createFileRoute("/products/$slug")({
-  loader: ({ params }) => {
-    const product = getProduct(params.slug);
+  loader: async ({ params }) => {
+    try {
+      const res = await apiClient.get(`/products/${params.slug}`);
+      if (res?.success && res?.data) {
+        const product = dbToProduct(res.data as DBProduct);
+        return { product };
+      }
+    } catch (err) {
+      console.warn("Product not found in backend, falling back to static", err);
+    }
+    const product = getStaticProduct(params.slug);
     if (!product) throw notFound();
     return { product };
   },
