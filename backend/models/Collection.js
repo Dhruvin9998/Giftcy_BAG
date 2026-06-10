@@ -25,8 +25,17 @@ const collectionSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// Virtual populate for products
+collectionSchema.virtual('products', {
+  ref: 'Product',
+  localField: '_id',
+  foreignField: 'collections',
+});
 
 // Auto-generate slug from name if not present or changed
 collectionSchema.pre('validate', function (next) {

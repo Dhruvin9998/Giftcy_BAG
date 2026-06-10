@@ -9,6 +9,7 @@ import Settings from '../models/Settings.js';
 import Blog from '../models/Blog.js';
 import Banner from '../models/Banner.js';
 import BulkInquiry from '../models/BulkInquiry.js';
+import Collection from '../models/Collection.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -32,7 +33,8 @@ export const setupMockDb = () => {
     Settings: [],
     Blog: [],
     Banner: [],
-    BulkInquiry: []
+    BulkInquiry: [],
+    Collection: []
   };
 
   // Helper to convert queries
@@ -354,22 +356,28 @@ export const setupMockDb = () => {
 
   // Generic Mock Model Setup
   const mockModel = (ModelClass, modelName) => {
+    const performPopulate = (doc) => {
+      if (!doc) return;
+      if (doc.category && typeof doc.category !== 'object') {
+        const cat = memDb.Category.find(c => String(c._id) === String(doc.category));
+        if (cat) doc.category = cat;
+      }
+      if (doc.user && typeof doc.user !== 'object') {
+        const u = memDb.User.find(x => String(x._id) === String(doc.user));
+        if (u) doc.user = u;
+      }
+      if (modelName === 'Collection') {
+        doc.products = memDb.Product.filter(p => p.collections && p.collections.some(cid => String(cid) === String(doc._id)));
+      }
+    };
+
     ModelClass.find = function(query = {}) {
       const items = memDb[modelName].filter(item => matchQuery(item, query));
       const docs = items.map(item => makeDoc(modelName, item));
       
       const queryBuilder = {
         populate: function() {
-          docs.forEach(d => {
-            if (d.category && typeof d.category !== 'object') {
-              const cat = memDb.Category.find(c => String(c._id) === String(d.category));
-              if (cat) d.category = cat;
-            }
-            if (d.user && typeof d.user !== 'object') {
-              const u = memDb.User.find(x => String(x._id) === String(d.user));
-              if (u) d.user = u;
-            }
-          });
+          docs.forEach(performPopulate);
           return this;
         },
         sort: function() { return this; },
@@ -387,16 +395,7 @@ export const setupMockDb = () => {
       const doc = makeDoc(modelName, item);
       const queryBuilder = {
         populate: function() {
-          if (doc) {
-            if (doc.category && typeof doc.category !== 'object') {
-              const cat = memDb.Category.find(c => String(c._id) === String(doc.category));
-              if (cat) doc.category = cat;
-            }
-            if (doc.user && typeof doc.user !== 'object') {
-              const u = memDb.User.find(x => String(x._id) === String(doc.user));
-              if (u) doc.user = u;
-            }
-          }
+          performPopulate(doc);
           return this;
         },
         select: function() { return this; },
@@ -410,16 +409,7 @@ export const setupMockDb = () => {
       const doc = makeDoc(modelName, item);
       const queryBuilder = {
         populate: function() {
-          if (doc) {
-            if (doc.category && typeof doc.category !== 'object') {
-              const cat = memDb.Category.find(c => String(c._id) === String(doc.category));
-              if (cat) doc.category = cat;
-            }
-            if (doc.user && typeof doc.user !== 'object') {
-              const u = memDb.User.find(x => String(x._id) === String(doc.user));
-              if (u) doc.user = u;
-            }
-          }
+          performPopulate(doc);
           return this;
         },
         then: function(resolve) { return Promise.resolve(resolve(doc)); }
@@ -480,6 +470,45 @@ export const setupMockDb = () => {
       }
       return [];
     };
+
+    ModelClass.updateMany = async (query = {}, update = {}, options = {}) => {
+      const items = memDb[modelName].filter(item => matchQuery(item, query));
+      for (const item of items) {
+        const idx = memDb[modelName].findIndex(x => String(x._id) === String(item._id));
+        if (idx !== -1) {
+          let updated = { ...memDb[modelName][idx] };
+          
+          if (update.$addToSet) {
+            for (const key of Object.keys(update.$addToSet)) {
+              const val = update.$addToSet[key];
+              if (!Array.isArray(updated[key])) {
+                updated[key] = updated[key] ? [updated[key]] : [];
+              }
+              if (!updated[key].some(x => String(x) === String(val))) {
+                updated[key].push(val);
+              }
+            }
+          }
+          if (update.$pull) {
+            for (const key of Object.keys(update.$pull)) {
+              const val = update.$pull[key];
+              if (Array.isArray(updated[key])) {
+                updated[key] = updated[key].filter(x => String(x) !== String(val));
+              }
+            }
+          }
+          
+          // apply other normal updates
+          const cleanUpdate = { ...update };
+          delete cleanUpdate.$addToSet;
+          delete cleanUpdate.$pull;
+          updated = { ...updated, ...cleanUpdate };
+          
+          memDb[modelName][idx] = updated;
+        }
+      }
+      return { nModified: items.length };
+    };
   };
 
   mockModel(Product, 'Product');
@@ -493,4 +522,5 @@ export const setupMockDb = () => {
   mockModel(Blog, 'Blog');
   mockModel(Banner, 'Banner');
   mockModel(BulkInquiry, 'BulkInquiry');
+  mockModel(Collection, 'Collection');
 };
