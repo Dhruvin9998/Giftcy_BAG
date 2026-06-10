@@ -31,6 +31,7 @@ export const dbToProduct = (d: DBProduct): Product => ({
   price: Number(d.price),
   mrp: Number(d.compareAtPrice || d.price),
   image: d.images?.[0] || staticProducts[0].image,
+  images: d.images && d.images.length > 0 ? d.images : [d.images?.[0] || staticProducts[0].image],
   badge: d.isBestSeller ? "Bestseller" : d.isNewArrival ? "New" : undefined,
   colors: ["Ivory", "Gold", "Blush"],
   sizes: ["S", "M", "L"],

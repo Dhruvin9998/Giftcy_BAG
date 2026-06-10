@@ -419,6 +419,60 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
           </div>
         </div>
 
+        {/* Visual Progress Stepper (Always visible if not Cancelled) */}
+        {order.status !== "Cancelled" && (
+          <div className="mt-6 border-t border-border/40 pt-5 pb-2">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-4 font-semibold font-sans">Order Timeline</span>
+            <div className="flex items-center justify-between relative max-w-xl mx-auto px-4">
+              {/* Background connector line */}
+              <div className="absolute top-4 left-6 right-6 h-0.5 bg-border/60 -z-0" />
+              {/* Active connector line */}
+              <div 
+                className="absolute top-4 left-6 h-0.5 bg-gold -z-0 transition-all duration-500" 
+                style={{ 
+                  width: order.status === "Processing" ? "25%" : 
+                         order.status === "Shipped" ? "75%" : 
+                         order.status === "Delivered" ? "100%" : "0%"
+                }}
+              />
+              
+              {/* Timeline Steps */}
+              {[
+                { label: "Ordered", statusIdx: 0 },
+                { label: "Packed", statusIdx: 1 },
+                { label: "Shipped", statusIdx: 2 },
+                { label: "Out for Delivery", statusIdx: 3 },
+                { label: "Delivered", statusIdx: 4 }
+              ].map((step, idx) => {
+                const isCompleted = 
+                  (order.status === "Processing" && idx <= 1) || 
+                  (order.status === "Shipped" && idx <= 3) || 
+                  (order.status === "Delivered" && idx <= 4);
+                
+                const isCurrent = 
+                  (order.status === "Processing" && idx === 1) ||
+                  (order.status === "Shipped" && idx === 3) ||
+                  (order.status === "Delivered" && idx === 4);
+
+                return (
+                  <div key={idx} className="flex flex-col items-center relative z-10 flex-1">
+                    <div 
+                      className={`h-9 w-9 rounded-full flex items-center justify-center border-2 transition-all duration-300 font-sans text-xs font-semibold ${
+                        isCompleted 
+                          ? "bg-gold border-gold text-white" 
+                          : "bg-background border-border text-muted-foreground"
+                      } ${isCurrent ? "ring-4 ring-gold/20 scale-105" : ""}`}
+                    >
+                      {idx + 1}
+                    </div>
+                    <span className={`text-[10px] font-semibold tracking-wide mt-2 text-center block ${isCompleted ? "text-foreground" : "text-muted-foreground"}`}>{step.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Expanded detail description */}
         {expanded && (
           <div className="mt-5 pt-5 border-t border-border/60 grid md:grid-cols-[1fr_240px] gap-6 animate-in fade-in duration-250">

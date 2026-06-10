@@ -3,14 +3,19 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiClient } from "@/lib/apiClient";
 
 export type AuthSearch = {
-  tab?: "signup" | "login";
+  tab?: "signup" | "login" | "forgot" | "reset";
+  mode?: "signup" | "login" | "forgot" | "reset";
+  token?: string;
 };
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): AuthSearch => ({
-    tab: s.tab === "signup" ? "signup" : s.tab === "login" ? "login" : undefined,
+    tab: (s.tab as any) || undefined,
+    mode: (s.mode as any) || undefined,
+    token: (s.token as string) || undefined,
   }),
   head: () => ({ meta: [{ title: "Sign in — Giftcy" }] }),
   component: AuthPage,
@@ -35,6 +40,11 @@ function useCountdown(initialSeconds: number) {
     }, 1000);
   }, [initialSeconds]);
 
+  const stop = useCallback(() => {
+    setSeconds(0);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  }, []);
+
   useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
@@ -42,120 +52,20 @@ function useCountdown(initialSeconds: number) {
   return { seconds, start, formatted: formatTime(seconds), isActive: seconds > 0 };
 }
 
-/* ─── OTP Digit Input Component ─── */
-function OtpDigitInput({ value, onChange, onComplete }: {
-  value: string;
-  onChange: (val: string) => void;
-  onComplete: () => void;
-}) {
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const handleChange = (index: number, char: string) => {
-    if (!/^\d?$/.test(char)) return;
-    const arr = value.split("");
-    while (arr.length < 6) arr.push("");
-    arr[index] = char;
-    const newVal = arr.join("").slice(0, 6);
-    onChange(newVal);
-    if (char && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-    if (newVal.length === 6 && !newVal.includes("")) {
-      setTimeout(onComplete, 100);
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !value[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    onChange(pasted);
-    const nextIndex = Math.min(pasted.length, 5);
-    inputRefs.current[nextIndex]?.focus();
-    if (pasted.length === 6) {
-      setTimeout(onComplete, 100);
-    }
-  };
-
-  return (
-    <div className="flex gap-2.5 justify-center" onPaste={handlePaste}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <input
-          key={i}
-          ref={(el) => { inputRefs.current[i] = el; }}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          value={value[i] || ""}
-          onChange={(e) => handleChange(i, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(i, e)}
-          className="w-11 h-13 text-center text-xl font-bold rounded-xl border-2 border-border bg-background
-                     focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20
-                     transition-all duration-200"
-          id={`otp-digit-${i}`}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ─── Step Indicator ─── */
-function StepIndicator({ step }: { step: 1 | 2 }) {
-  return (
-    <div className="flex items-center justify-center gap-3 mb-6">
-      <div className="flex items-center gap-2">
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
-          ${step >= 1 ? "bg-gold text-white" : "bg-border text-muted-foreground"}`}>
-          {step > 1 ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-          ) : "1"}
-        </div>
-        <span className={`text-xs font-medium ${step >= 1 ? "text-foreground" : "text-muted-foreground"}`}>Register</span>
-      </div>
-      <div className={`w-10 h-0.5 rounded-full transition-all duration-500 ${step >= 2 ? "bg-gold" : "bg-border"}`} />
-      <div className="flex items-center gap-2">
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
-          ${step >= 2 ? "bg-gold text-white" : "bg-border text-muted-foreground"}`}>
-          2
-        </div>
-        <span className={`text-xs font-medium ${step >= 2 ? "text-foreground" : "text-muted-foreground"}`}>Verify</span>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Email Icon ─── */
-function EmailIcon() {
-  return (
-    <div className="mx-auto mb-4 w-16 h-16 rounded-2xl bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="4" width="20" height="16" rx="3" />
-        <path d="M22 7l-10 6L2 7" />
-      </svg>
-    </div>
-  );
-}
-
-/* ─── Page Transition Wrapper ─── */
-const pageVariants = {
-  enter: { opacity: 0, y: 20, scale: 0.98 },
-  center: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -20, scale: 0.98 },
-};
-
 /* ─── Main Auth Page ─── */
 function AuthPage() {
-  const { tab } = Route.useSearch();
+  const { tab, mode: queryMode, token } = Route.useSearch();
   const nav = useNavigate();
   const { signIn, signUp, verifyOTP, resendOTP, googleSignIn, user, isAdmin, claimFirstAdmin } = useAuth();
-  const [mode, setMode] = useState<"login" | "signup">(tab || "login");
+  
+  const initialMode = queryMode || tab || "login";
+  const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset">(
+    initialMode === "reset" && token ? "reset" : (initialMode as any)
+  );
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [showOtpVerification, setShowOtpVerification] = useState(false);
@@ -168,7 +78,15 @@ function AuthPage() {
   const resendTimer = useCountdown(60);
   const expiryTimer = useCountdown(600); // 10 minutes
 
-  useEffect(() => { setMode(tab || "login"); }, [tab]);
+  useEffect(() => {
+    const activeMode = queryMode || tab || "login";
+    if (activeMode === "reset" && token) {
+      setMode("reset");
+    } else {
+      setMode(activeMode as any);
+    }
+  }, [tab, queryMode, token]);
+
   useEffect(() => { if (user) nav({ to: isAdmin ? "/admin" : "/" }); }, [user, isAdmin, nav]);
 
   useEffect(() => {
@@ -190,10 +108,10 @@ function AuthPage() {
   }, [googleSignIn]);
 
   useEffect(() => {
+    if (mode === "forgot" || mode === "reset") return;
     const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID;
     if (!clientId || clientId === "your_google_client_id_here") return;
 
-    // Wait for GSI script to load
     const initGoogle = () => {
       if (!(window as any).google?.accounts?.id) return;
       (window as any).google.accounts.id.initialize({
@@ -215,7 +133,6 @@ function AuthPage() {
       }
     };
 
-    // Try immediately, or wait for script
     if ((window as any).google?.accounts?.id) {
       initGoogle();
     } else {
@@ -227,7 +144,7 @@ function AuthPage() {
       }, 200);
       return () => clearInterval(interval);
     }
-  }, [handleGoogleCredential, showOtpVerification]);
+  }, [handleGoogleCredential, showOtpVerification, mode]);
 
   const handleGoToOtp = () => {
     setShowOtpVerification(true);
@@ -251,12 +168,47 @@ function AuthPage() {
         return;
       }
       toast.success("Welcome back!");
-    } else {
+    } else if (mode === "signup") {
       const res = await signUp(email, password, name);
       setLoading(false);
       if (res.error) return toast.error(res.error);
       toast.success("Account created! Check your email for the verification code.");
       handleGoToOtp();
+    } else if (mode === "forgot") {
+      try {
+        const response = await apiClient.post("/auth/forgot-password", { email });
+        setLoading(false);
+        if (response?.success) {
+          toast.success("Password recovery link sent! Check your email / terminal console.");
+          setEmail("");
+        } else {
+          toast.error(response.message || "Failed to send reset link");
+        }
+      } catch (err: any) {
+        setLoading(false);
+        toast.error(err.message || "Something went wrong.");
+      }
+    } else if (mode === "reset") {
+      if (password !== confirmPassword) {
+        setLoading(false);
+        return toast.error("Passwords do not match");
+      }
+      try {
+        const response = await apiClient.put(`/auth/reset-password/${token}`, { password });
+        setLoading(false);
+        if (response?.success) {
+          toast.success("Password reset successfully! Please log in.");
+          setMode("login");
+          setPassword("");
+          setConfirmPassword("");
+          nav({ to: "/auth", search: { tab: "login" } });
+        } else {
+          toast.error(response.message || "Failed to reset password");
+        }
+      } catch (err: any) {
+        setLoading(false);
+        toast.error(err.message || "Something went wrong or token has expired.");
+      }
     }
   };
 
@@ -315,12 +267,10 @@ function AuthPage() {
                 <strong className="text-foreground">{email}</strong>
               </p>
 
-              {/* OTP Digit Inputs */}
               <div className="mb-6">
                 <OtpDigitInput value={otp} onChange={setOtp} onComplete={submitOtp} />
               </div>
 
-              {/* Expiry Timer */}
               {expiryTimer.isActive && (
                 <p className="text-xs text-center text-muted-foreground mb-4">
                   Code expires in{" "}
@@ -330,7 +280,6 @@ function AuthPage() {
                 </p>
               )}
 
-              {/* Verify Button */}
               <button
                 onClick={submitOtp}
                 disabled={loading || otp.length !== 6}
@@ -346,7 +295,6 @@ function AuthPage() {
                 ) : "Verify Email"}
               </button>
 
-              {/* Resend OTP */}
               <div className="text-center mb-4">
                 <p className="text-xs text-muted-foreground mb-1">Didn't receive the code?</p>
                 <button
@@ -366,7 +314,6 @@ function AuthPage() {
                 </button>
               </div>
 
-              {/* Back Button */}
               <button
                 type="button"
                 onClick={() => { setShowOtpVerification(false); setOtp(""); }}
@@ -378,7 +325,7 @@ function AuthPage() {
               </button>
             </motion.div>
           ) : (
-            /* ─── Login / Signup Form ─── */
+            /* ─── Login / Signup / Forgot Form ─── */
             <motion.div
               key="form"
               variants={pageVariants}
@@ -394,31 +341,43 @@ function AuthPage() {
               <div className="text-center mb-8">
                 <p className="text-[11px] tracking-[0.25em] uppercase text-gold">Giftcy Account</p>
                 <h1 className="serif text-4xl mt-2">
-                  {mode === "login" ? "Welcome back" : "Create account"}
+                  {mode === "login" 
+                    ? "Welcome back" 
+                    : mode === "signup" 
+                    ? "Create account" 
+                    : mode === "forgot" 
+                    ? "Reset Password" 
+                    : "New Password"}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-2">
                   {mode === "login"
                     ? "Sign in to access your orders and wishlist"
-                    : "Join Giftcy for a premium gifting experience"}
+                    : mode === "signup"
+                    ? "Join Giftcy for a premium gifting experience"
+                    : mode === "forgot"
+                    ? "Enter your email to receive a recovery link"
+                    : "Choose a strong new password below"}
                 </p>
               </div>
 
               {/* Tab Switcher */}
-              <div className="flex p-1 bg-cream rounded-full mb-6 text-sm" id="auth-tab-switcher">
-                {(["login", "signup"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMode(m)}
-                    className={`flex-1 py-2.5 rounded-full transition-all duration-300 font-medium
-                      ${mode === m
-                        ? "bg-foreground text-background shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    id={`tab-${m}`}
-                  >{m === "login" ? "Sign in" : "Sign up"}</button>
-                ))}
-              </div>
+              {mode !== "forgot" && mode !== "reset" && (
+                <div className="flex p-1 bg-cream rounded-full mb-6 text-sm" id="auth-tab-switcher">
+                  {(["login", "signup"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMode(m)}
+                      className={`flex-1 py-2.5 rounded-full transition-all duration-300 font-medium
+                        ${mode === m
+                          ? "bg-foreground text-background shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      id={`tab-${m}`}
+                    >{m === "login" ? "Sign in" : "Sign up"}</button>
+                  ))}
+                </div>
+              )}
 
               {/* Form */}
               <form onSubmit={submit} className="space-y-4" id="auth-form">
@@ -445,51 +404,78 @@ function AuthPage() {
                   )}
                 </AnimatePresence>
 
-                <div className="relative">
-                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M22 7l-10 6L2 7" /></svg>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email address"
-                    className="w-full pl-11 pr-4 py-3 rounded-full border border-border bg-background focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all duration-200"
-                    id="input-email"
-                  />
-                </div>
+                {mode !== "reset" && (
+                  <div className="relative">
+                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M22 7l-10 6L2 7" /></svg>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email address"
+                      className="w-full pl-11 pr-4 py-3 rounded-full border border-border bg-background focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all duration-200"
+                      id="input-email"
+                    />
+                  </div>
+                )}
 
-                <div className="relative">
-                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password"
-                    className="w-full pl-11 pr-12 py-3 rounded-full border border-border bg-background focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all duration-200"
-                    id="input-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                    id="toggle-password-btn"
-                  >
-                    {showPassword ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                    )}
-                  </button>
-                </div>
+                {mode !== "forgot" && (
+                  <div className="relative">
+                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={mode === "reset" ? "New Password" : "Password"}
+                      className="w-full pl-11 pr-12 py-3 rounded-full border border-border bg-background focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all duration-200"
+                      id="input-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                      id="toggle-password-btn"
+                    >
+                      {showPassword ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {mode === "reset" && (
+                  <div className="relative">
+                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm New Password"
+                      className="w-full pl-11 pr-12 py-3 rounded-full border border-border bg-background focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all duration-200"
+                      id="input-confirm-password"
+                    />
+                  </div>
+                )}
 
                 {mode === "login" && (
                   <div className="text-right">
-                    <Link to="/auth" search={{ tab: "login" }} className="text-xs text-gold hover:text-gold/80 underline underline-offset-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("forgot");
+                        nav({ to: "/auth", search: { tab: "forgot" } as any });
+                      }}
+                      className="text-xs text-gold hover:text-gold/80 underline underline-offset-2"
+                    >
                       Forgot password?
-                    </Link>
+                    </button>
                   </div>
                 )}
 
@@ -504,56 +490,75 @@ function AuthPage() {
                       <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                       Please wait…
                     </>
-                  ) : mode === "login" ? "Sign in" : "Create account"}
+                  ) : mode === "login" ? "Sign in" : mode === "signup" ? "Create account" : mode === "forgot" ? "Send recovery link" : "Reset Password"}
                 </button>
               </form>
 
-              {/* Divider */}
-              <div className="flex items-center gap-3 my-6">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">or</span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-
-              {/* Google Sign-In */}
-              {googleLoading ? (
-                <div className="w-full py-3 rounded-full border border-border text-sm text-muted-foreground flex items-center justify-center gap-2.5">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                  Signing in with Google…
+              {/* Back to sign in button */}
+              {(mode === "forgot" || mode === "reset") && (
+                <div className="text-center mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("login");
+                      nav({ to: "/auth", search: { tab: "login" } });
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 flex items-center justify-center gap-1 mx-auto"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                    Back to sign in
+                  </button>
                 </div>
-              ) : (
-                <div className="w-full flex flex-col items-center gap-2" id="google-signin-wrapper">
-                  {/* Google sign-in container managed dynamically by GSI library, empty in React to avoid unmount crash */}
-                  <div
-                    ref={googleBtnRef}
-                    className="w-full flex justify-center"
-                    id="google-signin-container"
-                    style={{ display: isGoogleReady ? "flex" : "none" }}
-                  />
+              )}
 
-                  {/* Fallback button managed safely by React, displayed only when Google isn't ready */}
-                  {!isGoogleReady && (
-                    <button
-                      type="button"
-                      className="w-full py-3 rounded-full border border-border text-sm text-muted-foreground hover:border-gold/50 hover:text-foreground transition-all duration-200 flex items-center justify-center gap-2.5"
-                      onClick={() => {
-                        const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID;
-                        if (!clientId || clientId === "your_google_client_id_here") {
-                          toast.info("Google Sign-In setup needed. See the instructions below.", {
-                            description: "Add VITE_GOOGLE_CLIENT_ID to your frontend .env and GOOGLE_CLIENT_ID to your backend .env",
-                            duration: 8000,
-                          });
-                        } else {
-                          toast.info("Google Sign-In is loading, please try again in a moment.");
-                        }
-                      }}
-                      id="google-signin-fallback-btn"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" /><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" /><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" /><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" /></svg>
-                      Continue with Google
-                    </button>
+              {/* Divider (hide for forgot/reset modes) */}
+              {mode !== "forgot" && mode !== "reset" && (
+                <>
+                  <div className="flex items-center gap-3 my-6">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">or</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+
+                  {/* Google Sign-In */}
+                  {googleLoading ? (
+                    <div className="w-full py-3 rounded-full border border-border text-sm text-muted-foreground flex items-center justify-center gap-2.5">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      Signing in with Google…
+                    </div>
+                  ) : (
+                    <div className="w-full flex flex-col items-center gap-2" id="google-signin-wrapper">
+                      <div
+                        ref={googleBtnRef}
+                        className="w-full flex justify-center"
+                        id="google-signin-container"
+                        style={{ display: isGoogleReady ? "flex" : "none" }}
+                      />
+
+                      {!isGoogleReady && (
+                        <button
+                          type="button"
+                          className="w-full py-3 rounded-full border border-border text-sm text-muted-foreground hover:border-gold/50 hover:text-foreground transition-all duration-200 flex items-center justify-center gap-2.5"
+                          onClick={() => {
+                            const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID;
+                            if (!clientId || clientId === "your_google_client_id_here") {
+                              toast.info("Google Sign-In setup needed. See the instructions below.", {
+                                description: "Add VITE_GOOGLE_CLIENT_ID to your frontend .env and GOOGLE_CLIENT_ID to your backend .env",
+                                duration: 8000,
+                              });
+                            } else {
+                              toast.info("Google Sign-In is loading, please try again in a moment.");
+                            }
+                          }}
+                          id="google-signin-fallback-btn"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" /><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" /><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" /><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" /></svg>
+                          Continue with Google
+                        </button>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </motion.div>
           )}
@@ -584,5 +589,83 @@ function AuthPage() {
         </p>
       </div>
     </section>
+  );
+}
+
+/* ─── Framer Motion Variants ─── */
+const pageVariants = {
+  enter: { opacity: 0, x: 10 },
+  center: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -10 },
+};
+
+/* ─── UI Sub-components ─── */
+function StepIndicator({ step }: { step: number }) {
+  return (
+    <div className="flex justify-between items-center gap-2 mb-6">
+      <div className="flex-1 h-1 rounded bg-gold" />
+      <div className={`flex-1 h-1 rounded ${step >= 2 ? "bg-gold" : "bg-border"}`} />
+    </div>
+  );
+}
+
+function EmailIcon() {
+  return (
+    <div className="h-16 w-16 mx-auto rounded-full bg-cream flex items-center justify-center text-gold mb-4">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+    </div>
+  );
+}
+
+function OtpDigitInput({ value, onChange, onComplete }: { value: string; onChange: (v: string) => void; onComplete: () => void }) {
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    const val = e.target.value.replace(/[^0-9]/g, "");
+    if (!val) return;
+    const split = value.split("");
+    split[idx] = val[val.length - 1];
+    const nextVal = split.join("");
+    onChange(nextVal);
+
+    if (idx < 5 && inputsRef.current[idx + 1]) {
+      inputsRef.current[idx + 1]?.focus();
+    } else if (idx === 5 && nextVal.length === 6) {
+      setTimeout(onComplete, 100);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
+    if (e.key === "Backspace") {
+      if (!value[idx] && idx > 0 && inputsRef.current[idx - 1]) {
+        inputsRef.current[idx - 1]?.focus();
+        const split = value.split("");
+        split[idx - 1] = "";
+        onChange(split.join(""));
+      } else {
+        const split = value.split("");
+        split[idx] = "";
+        onChange(split.join(""));
+      }
+    }
+  };
+
+  return (
+    <div className="flex justify-center gap-2.5">
+      {[...Array(6)].map((_, idx) => (
+        <input
+          key={idx}
+          ref={(el) => { inputsRef.current[idx] = el; }}
+          type="text"
+          maxLength={1}
+          pattern="[0-9]*"
+          inputMode="numeric"
+          value={value[idx] || ""}
+          onChange={(e) => handleChange(e, idx)}
+          onKeyDown={(e) => handleKeyDown(e, idx)}
+          className="h-12 w-12 rounded-xl border border-border text-center text-lg font-mono font-bold focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all duration-200"
+        />
+      ))}
+    </div>
   );
 }

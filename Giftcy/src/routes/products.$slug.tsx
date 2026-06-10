@@ -1,10 +1,11 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ExternalLink, Heart, Minus, Plus, Share2, ShoppingBag, Truck } from "lucide-react";
 import { getProduct as getStaticProduct, products, type Product } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/components/CartContext";
 import { useWishlist } from "@/components/WishlistContext";
+import { useAuth } from "@/components/AuthContext";
 import { apiClient } from "@/lib/apiClient";
 import { dbToProduct, type DBProduct } from "@/lib/useProducts";
 import { toast } from "sonner";
@@ -46,11 +47,83 @@ function PDP() {
   const { product } = Route.useLoaderData() as { product: Product };
   const { add, setOpen } = useCart();
   const { toggle, has } = useWishlist();
+  const { user } = useAuth();
   const isWishlisted = has(product.id);
   const [size, setSize] = useState(product.sizes[1] ?? product.sizes[0]);
   const [color, setColor] = useState(product.colors[0]);
   const [qty, setQty] = useState(1);
   const off = Math.round(((product.mrp - product.price) / product.mrp) * 100);
+
+  const [activeImage, setActiveImage] = useState(product.image);
+  const [pincode, setPincode] = useState("");
+  const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "available" | "unavailable">("idle");
+
+  // Reviews states
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  useEffect(() => {
+    setActiveImage(product.image);
+    setPincode("");
+    setPincodeStatus("idle");
+    fetchReviews();
+  }, [product]);
+
+  const fetchReviews = async () => {
+    if (!product.id) return;
+    setLoadingReviews(true);
+    try {
+      const res = await apiClient.get(`/reviews/${product.id}`);
+      if (res?.success && Array.isArray(res.data)) {
+        setReviews(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load reviews", err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const handleCheckPincode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(pincode)) {
+      toast.error("Please enter a valid 6-digit pincode");
+      return;
+    }
+    setPincodeStatus("loading");
+    setTimeout(() => {
+      if (pincode.startsWith("7") || pincode.startsWith("8")) {
+        setPincodeStatus("unavailable");
+      } else {
+        setPincodeStatus("available");
+      }
+    }, 600);
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product.id) return;
+    if (!comment.trim()) return toast.error("Please enter a comment");
+    setSubmittingReview(true);
+    try {
+      const res = await apiClient.post(`/reviews/${product.id}`, { rating, comment });
+      if (res?.success) {
+        toast.success("Review submitted successfully!");
+        setComment("");
+        setRating(5);
+        fetchReviews();
+      } else {
+        toast.error(res.message || "Failed to submit review");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit review. Note: Reviews require a delivered purchase of this product.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const related = products.filter((p) => p.slug !== product.slug).slice(0, 4);
 
@@ -63,6 +136,10 @@ function PDP() {
     }
   };
 
+  const avgRating = reviews.length > 0 
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) 
+    : "0.0";
+
   return (
     <>
       <div className="mx-auto max-w-7xl px-5 lg:px-10 py-8 text-xs text-muted-foreground">
@@ -73,14 +150,20 @@ function PDP() {
         {/* GALLERY */}
         <div className="grid grid-cols-[80px_1fr] gap-4">
           <div className="hidden lg:flex flex-col gap-3">
-            {[product.image, product.image, product.image, product.image].map((src, i) => (
-              <button key={i} className="aspect-square rounded-lg overflow-hidden border border-border hover:border-gold">
+            {(product.images && product.images.length > 0 ? product.images : [product.image]).map((src, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveImage(src)}
+                className={`aspect-square rounded-lg overflow-hidden border transition ${
+                  activeImage === src ? "border-gold shadow-sm ring-1 ring-gold" : "border-border hover:border-gold"
+                }`}
+              >
                 <img src={src} alt="" className="h-full w-full object-cover" />
               </button>
             ))}
           </div>
           <div className="col-span-2 lg:col-span-1 aspect-square rounded-2xl overflow-hidden bg-secondary">
-            <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+            <img src={activeImage} alt={product.name} className="h-full w-full object-cover transition-all duration-300" />
           </div>
         </div>
 
@@ -88,6 +171,15 @@ function PDP() {
         <div>
           <p className="text-[11px] tracking-[0.25em] uppercase text-gold">{product.category}</p>
           <h1 className="serif text-4xl lg:text-5xl mt-3 leading-tight">{product.name}</h1>
+
+          <div className="mt-3 flex items-center gap-2">
+            <div className="flex text-gold text-sm">
+              {[...Array(5)].map((_, i) => (
+                <span key={i}>{i < Math.round(Number(avgRating)) ? "★" : "☆"}</span>
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">({reviews.length} reviews)</span>
+          </div>
 
           <div className="mt-5 flex items-baseline gap-3">
             <span className="serif text-3xl">₹{product.price}</span>
@@ -206,6 +298,37 @@ function PDP() {
             </div>
           </div>
 
+          {/* Pincode Availability Checker */}
+          <div className="mt-5 rounded-2xl border border-border p-5 bg-cream/10">
+            <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Check Delivery Availability</h4>
+            <form onSubmit={handleCheckPincode} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter 6-digit Pincode"
+                maxLength={6}
+                value={pincode}
+                onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
+                className="flex-1 px-4 py-2 border border-border rounded-xl text-sm focus:outline-none focus:border-gold bg-transparent"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-foreground text-background text-xs font-semibold hover:opacity-90"
+              >
+                {pincodeStatus === "loading" ? "Checking..." : "Check"}
+              </button>
+            </form>
+            {pincodeStatus === "available" && (
+              <p className="text-xs text-emerald-700 font-medium mt-2 flex items-center gap-1">
+                <span>🟢</span> Delivery Available! Expected delivery: 3–5 business days. COD available.
+              </p>
+            )}
+            {pincodeStatus === "unavailable" && (
+              <p className="text-xs text-destructive font-medium mt-2 flex items-center gap-1">
+                <span>🔴</span> Sorry, standard delivery is currently unavailable to this pincode.
+              </p>
+            )}
+          </div>
+
           {/* Accordion */}
           <div className="mt-10 border-t border-border">
             {[
@@ -216,6 +339,134 @@ function PDP() {
             ].map((it) => (
               <Accordion key={it.t} title={it.t}>{it.c}</Accordion>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* REVIEWS SECTION */}
+      <section className="mx-auto max-w-7xl px-5 lg:px-10 py-16 border-t border-border mt-16">
+        <div className="grid lg:grid-cols-[320px_1fr] gap-10 lg:gap-16">
+          {/* Summary Ratings Column */}
+          <div className="space-y-6">
+            <div>
+              <h2 className="serif text-3xl font-semibold text-foreground">Customer Reviews</h2>
+              <div className="flex items-center gap-3 mt-3">
+                <span className="text-4xl font-bold font-serif text-foreground">{avgRating}</span>
+                <div>
+                  <div className="flex text-gold text-lg">
+                    {[...Array(5)].map((_, i) => (
+                      <span key={i}>{i < Math.round(Number(avgRating)) ? "★" : "☆"}</span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{reviews.length} rating{reviews.length !== 1 ? "s" : ""}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Stars breakdown */}
+            <div className="space-y-2.5">
+              {[5, 4, 3, 2, 1].map((stars) => {
+                const count = reviews.filter((r) => r.rating === stars).length;
+                const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                return (
+                  <div key={stars} className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="w-10 hover:text-foreground transition cursor-pointer">{stars} star</span>
+                    <div className="flex-1 h-2 bg-cream rounded-full overflow-hidden">
+                      <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${percentage}%` }} />
+                    </div>
+                    <span className="w-8 text-right font-medium">{Math.round(percentage)}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Reviews List & Write Review Column */}
+          <div className="space-y-10">
+            {/* Write a Review Section */}
+            {user ? (
+              <div className="rounded-3xl border border-border p-6 lg:p-8 bg-cream/10 shadow-sm animate-in fade-in duration-200">
+                <h3 className="serif text-xl mb-4 font-semibold text-foreground">Write a customer review</h3>
+                <form onSubmit={handleSubmitReview} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2 block">Rating</label>
+                    <div className="flex gap-1.5 text-2xl text-gold">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRating(star)}
+                          className="hover:scale-110 transition-transform active:scale-95"
+                        >
+                          {star <= rating ? "★" : "☆"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2 block">Review comment</label>
+                    <textarea
+                      rows={4}
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="What did you like or dislike? How was the fabric quality?"
+                      className="w-full px-4 py-3 rounded-2xl bg-background border border-border focus:outline-none focus:border-gold text-sm placeholder:text-muted-foreground/45 transition-colors"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={submittingReview}
+                    className="px-6 py-3 rounded-full bg-foreground text-background text-xs font-semibold hover:opacity-90 transition disabled:opacity-50"
+                  >
+                    {submittingReview ? "Submitting Review..." : "Submit Review"}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-muted-foreground bg-cream/5">
+                <p className="text-sm">Please <Link to="/auth" search={{ tab: "login" }} className="text-gold font-medium hover:underline">sign in</Link> to write a customer review.</p>
+              </div>
+            )}
+
+            {/* List */}
+            <div className="space-y-6">
+              <h3 className="serif text-xl font-semibold mb-4 text-foreground border-b border-border/60 pb-2">Customer Feedback</h3>
+              {loadingReviews ? (
+                <div className="py-8 text-center text-muted-foreground text-sm animate-pulse">Loading feedback...</div>
+              ) : reviews.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <p className="serif text-lg text-foreground mb-1">No reviews yet</p>
+                  <p className="text-xs">Be the first to review this product after your purchase!</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {reviews.map((r) => (
+                    <div key={r._id} className="border-b border-border/50 pb-6 last:border-b-0 animate-in fade-in duration-300">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-bold font-serif uppercase">
+                            {(r.name || "Customer").slice(0, 2)}
+                          </div>
+                          <div>
+                            <span className="text-sm font-semibold text-foreground block">{r.name || "Customer"}</span>
+                            <div className="flex text-gold text-xs mt-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <span key={i}>{i < r.rating ? "★" : "☆"}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3 leading-relaxed pl-10 pr-2">
+                        {r.comment}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>

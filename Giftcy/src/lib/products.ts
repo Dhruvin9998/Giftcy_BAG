@@ -12,6 +12,7 @@ export type Product = {
   price: number;
   mrp: number;
   image: string;
+  images?: string[];
   badge?: "Bestseller" | "New" | "Sale";
   colors: string[];
   sizes: string[];
