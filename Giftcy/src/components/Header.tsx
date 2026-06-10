@@ -44,6 +44,8 @@ export function Header() {
   const brandName = settings?.general_settings?.brandName || "Giftcy";
   const logoUrl = settings?.general_settings?.logoUrl;
 
+  const menuLinks = settings?.header_menu || nav;
+
   return (
     <header className="sticky top-0 z-40 glass border-b border-border/60">
       <div className="mx-auto max-w-7xl px-5 lg:px-10">
@@ -64,7 +66,7 @@ export function Header() {
           </Link>
 
           <nav className="hidden lg:flex items-center gap-8">
-            {nav.map((n) => (
+            {menuLinks.map((n: any) => (
               <Link
                 key={n.to}
                 to={n.to}
@@ -164,7 +166,7 @@ export function Header() {
               <button onClick={() => setOpen(false)} aria-label="Close"><X className="h-5 w-5" /></button>
             </div>
             <nav className="flex flex-col gap-1">
-              {nav.map((n) => (
+              {menuLinks.map((n: any) => (
                 <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="py-3 border-b border-border serif text-xl">
                   {n.label}
                 </Link>

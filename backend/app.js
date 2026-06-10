@@ -23,6 +23,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 import bannerRoutes from './routes/bannerRoutes.js';
 import bulkInquiryRoutes from './routes/bulkInquiryRoutes.js';
+import mediaRoutes from './routes/mediaRoutes.js';
 
 // Import Middleware & Utilities
 import errorHandler from './middleware/errorMiddleware.js';
@@ -100,6 +101,8 @@ app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/blogs', blogRoutes);
 app.use('/api/v1/banners', bannerRoutes);
 app.use('/api/v1/bulk-inquiries', bulkInquiryRoutes);
+app.use('/api/v1/media', mediaRoutes);
+app.use('/uploads', express.static('public/uploads'));
 
 // Root route
 app.get('/', (req, res) => {

@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SlidersHorizontal, ArrowLeft } from "lucide-react";
-import { useProducts } from "@/lib/useProducts";
+import { useProducts, dbToProduct } from "@/lib/useProducts";
 import { ProductCard } from "@/components/ProductCard";
+import { apiClient } from "@/lib/apiClient";
 
 // Import collection assets
 import weddingImg from "@/assets/collection-wedding.jpg";
@@ -54,8 +55,36 @@ const sizes = ["S", "M", "L", "XL"];
 
 function CollectionPage() {
   const { slug } = Route.useParams();
-  const meta = getCollectionMeta(slug);
-  const { products, loading } = useProducts();
+  const { products, loading: productsLoading } = useProducts();
+  const [collectionData, setCollectionData] = useState<any>(null);
+  const [dbLoading, setDbLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setDbLoading(true);
+      try {
+        const res = await apiClient.get(`/collections/${slug}`);
+        if (res?.success && res?.data) {
+          setCollectionData(res.data);
+        } else {
+          setCollectionData(null);
+        }
+      } catch (err) {
+        console.error("Failed to load DB collection, using legacy fallback", err);
+        setCollectionData(null);
+      } finally {
+        setDbLoading(false);
+      }
+    })();
+  }, [slug]);
+
+  const dbMeta = collectionData ? {
+    title: collectionData.name,
+    img: collectionData.image || fabricImg,
+    desc: collectionData.description || "Handcrafted reusable fabric gift bags designed to elevate your gifting experience."
+  } : null;
+
+  const meta = dbMeta || getCollectionMeta(slug);
 
   // Filters State
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -63,18 +92,25 @@ function CollectionPage() {
   const [maxPrice, setMaxPrice] = useState<number>(1000);
   const [sort, setSort] = useState<string>("featured");
 
+  // Determine product source
+  const sourceProducts = collectionData?.products
+    ? (collectionData.products as any[]).map(dbToProduct)
+    : products;
+
   // Filtering Logic
-  const filteredProducts = products.filter((p) => {
-    // 1. Slug occurence / Category match
-    const normalizedSlug = slug.toLowerCase();
-    const isCategoryMatch = p.category.toLowerCase().includes(normalizedSlug.replace("-bags", "")) ||
-                            normalizedSlug.includes(p.category.toLowerCase().replace(" bags", "").replace(" gift", "").replace(" printed", ""));
-    const isOccasionMatch = p.occasion.toLowerCase() === normalizedSlug || 
-                            (normalizedSlug === "wedding-gift-bags" && p.occasion.toLowerCase() === "wedding") ||
-                            (normalizedSlug === "festive-bags" && p.occasion.toLowerCase() === "festive") ||
-                            (normalizedSlug === "birthday-bags" && p.occasion.toLowerCase() === "birthday");
-    
-    if (!isCategoryMatch && !isOccasionMatch) return false;
+  const filteredProducts = sourceProducts.filter((p) => {
+    // 1. Slug occurence / Category match (only if not loaded directly from DB collection)
+    if (!collectionData) {
+      const normalizedSlug = slug.toLowerCase();
+      const isCategoryMatch = p.category.toLowerCase().includes(normalizedSlug.replace("-bags", "")) ||
+                              normalizedSlug.includes(p.category.toLowerCase().replace(" bags", "").replace(" gift", "").replace(" printed", ""));
+      const isOccasionMatch = p.occasion.toLowerCase() === normalizedSlug || 
+                              (normalizedSlug === "wedding-gift-bags" && p.occasion.toLowerCase() === "wedding") ||
+                              (normalizedSlug === "festive-bags" && p.occasion.toLowerCase() === "festive") ||
+                              (normalizedSlug === "birthday-bags" && p.occasion.toLowerCase() === "birthday");
+      
+      if (!isCategoryMatch && !isOccasionMatch) return false;
+    }
 
     // 2. Color Filter
     if (selectedColor && !p.colors.includes(selectedColor)) return false;
@@ -95,6 +131,8 @@ function CollectionPage() {
     if (sort === "newest") return b.badge === "New" ? 1 : -1;
     return b.badge === "Bestseller" ? 1 : -1; // Default featured sort
   });
+
+  const loading = dbLoading && productsLoading;
 
   return (
     <>

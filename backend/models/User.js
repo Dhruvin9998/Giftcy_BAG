@@ -27,10 +27,14 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'admin'],
+      enum: ['user', 'staff', 'admin', 'super-admin'],
       default: 'user',
     },
     isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isBlocked: {
       type: Boolean,
       default: false,
     },

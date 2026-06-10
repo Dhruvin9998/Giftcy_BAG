@@ -88,6 +88,8 @@ export const getDashboardStats = async (req, res, next) => {
       .sort('-createdAt')
       .limit(5);
 
+    const totalSales = salesData.length > 0 ? salesData[0].totalSales : 0;
+
     new ApiResponse(
       200,
       {
@@ -271,6 +273,57 @@ export const submitContactForm = async (req, res, next) => {
     // For now we simulate.
 
     new ApiResponse(200, null, 'Message submitted successfully. We will get back to you shortly.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Toggle block status of a user
+ * @route   PUT /api/v1/admin/users/:id/block
+ * @access  Private/Admin
+ */
+export const toggleBlockUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return next(new ApiError(404, 'User not found'));
+    }
+
+    if (user._id.toString() === req.user.id) {
+      return next(new ApiError(400, 'You cannot block your own admin profile'));
+    }
+
+    user.isBlocked = !user.isBlocked;
+    await user.save();
+
+    new ApiResponse(200, user, `User is now ${user.isBlocked ? 'blocked' : 'unblocked'}.`).send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Directly reset password of a user by admin
+ * @route   PUT /api/v1/admin/users/:id/reset-password
+ * @access  Private/Admin
+ */
+export const resetUserPasswordByAdmin = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return next(new ApiError(400, 'Please provide a valid password of at least 6 characters'));
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return next(new ApiError(404, 'User not found'));
+    }
+
+    user.password = password;
+    await user.save();
+
+    new ApiResponse(200, null, 'User password reset successfully.').send(res);
   } catch (error) {
     next(error);
   }

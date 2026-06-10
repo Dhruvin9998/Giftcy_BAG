@@ -193,6 +193,11 @@ export const login = async (req, res, next) => {
       return next(new ApiError(401, 'Invalid credentials'));
     }
 
+    // Check if user is blocked
+    if (user.isBlocked) {
+      return next(new ApiError(403, 'Your account has been suspended. Please contact customer support.'));
+    }
+
     // Check if password matches
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
@@ -271,6 +276,10 @@ export const googleLogin = async (req, res, next) => {
     let user = await User.findOne({ $or: [{ googleId }, { email }] });
 
     if (user) {
+      // Check if user is blocked
+      if (user.isBlocked) {
+        return next(new ApiError(403, 'Your account has been suspended. Please contact customer support.'));
+      }
       // Update googleId if not populated
       if (!user.googleId) {
         user.googleId = googleId;

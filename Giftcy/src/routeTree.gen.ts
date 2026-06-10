@@ -26,6 +26,8 @@ import { Route as ProductsSlugRouteImport } from './routes/products.$slug'
 import { Route as PoliciesSlugRouteImport } from './routes/policies.$slug'
 import { Route as CollectionsSlugRouteImport } from './routes/collections.$slug'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
@@ -112,12 +114,22 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => BlogRoute,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/blog': typeof BlogRouteWithChildren
   '/bulk': typeof BulkRoute
@@ -127,6 +139,8 @@ export interface FileRoutesByFullPath {
   '/gallery': typeof GalleryRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/collections/$slug': typeof CollectionsSlugRoute
   '/policies/$slug': typeof PoliciesSlugRoute
@@ -136,7 +150,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/blog': typeof BlogRouteWithChildren
   '/bulk': typeof BulkRoute
@@ -146,6 +160,8 @@ export interface FileRoutesByTo {
   '/gallery': typeof GalleryRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/collections/$slug': typeof CollectionsSlugRoute
   '/policies/$slug': typeof PoliciesSlugRoute
@@ -156,7 +172,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/blog': typeof BlogRouteWithChildren
   '/bulk': typeof BulkRoute
@@ -166,6 +182,8 @@ export interface FileRoutesById {
   '/gallery': typeof GalleryRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/collections/$slug': typeof CollectionsSlugRoute
   '/policies/$slug': typeof PoliciesSlugRoute
@@ -187,6 +205,8 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/shop'
     | '/wishlist'
+    | '/admin/dashboard'
+    | '/admin/login'
     | '/blog/$slug'
     | '/collections/$slug'
     | '/policies/$slug'
@@ -206,6 +226,8 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/shop'
     | '/wishlist'
+    | '/admin/dashboard'
+    | '/admin/login'
     | '/blog/$slug'
     | '/collections/$slug'
     | '/policies/$slug'
@@ -225,6 +247,8 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/shop'
     | '/wishlist'
+    | '/admin/dashboard'
+    | '/admin/login'
     | '/blog/$slug'
     | '/collections/$slug'
     | '/policies/$slug'
@@ -235,7 +259,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AccountRoute: typeof AccountRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRoute
   BlogRoute: typeof BlogRouteWithChildren
   BulkRoute: typeof BulkRoute
@@ -371,8 +395,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
+
+interface AdminRouteChildren {
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDashboardRoute: AdminDashboardRoute,
+  AdminLoginRoute: AdminLoginRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface BlogRouteChildren {
   BlogSlugRoute: typeof BlogSlugRoute
@@ -388,7 +438,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AccountRoute: AccountRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRoute,
   BlogRoute: BlogRouteWithChildren,
   BulkRoute: BulkRoute,

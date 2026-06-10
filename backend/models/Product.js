@@ -36,6 +36,12 @@ const productSchema = new mongoose.Schema(
       ref: 'Category',
       required: [true, 'Please select a product category'],
     },
+    collections: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Collection',
+      },
+    ],
     stock: {
       type: Number,
       required: [true, 'Please specify stock quantity'],
