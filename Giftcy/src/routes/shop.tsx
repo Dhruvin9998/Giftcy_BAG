@@ -1,10 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { useProducts } from "@/lib/useProducts";
 import { ProductCard } from "@/components/ProductCard";
 
+export type ShopSearch = {
+  search?: string;
+};
+
 export const Route = createFileRoute("/shop")({
+  validateSearch: (s: Record<string, unknown>): ShopSearch => ({
+    search: (s.search as string) || undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Shop Premium Gift Bags — Giftcy" },
@@ -19,6 +26,7 @@ const colors = ["Ivory", "Gold", "Blush", "Beige", "Cream"];
 const sizes = ["S", "M", "L", "XL"];
 
 function Shop() {
+  const { search } = Route.useSearch();
   const [occasion, setOccasion] = useState("All");
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -28,6 +36,16 @@ function Shop() {
 
   // Filter products based on active filters
   const filtered = products.filter((p) => {
+    // 0. Search Query Filter
+    if (
+      search &&
+      !p.name.toLowerCase().includes(search.toLowerCase()) &&
+      !p.category.toLowerCase().includes(search.toLowerCase()) &&
+      !p.description.toLowerCase().includes(search.toLowerCase())
+    ) {
+      return false;
+    }
+
     // 1. Occasion Filter
     if (occasion !== "All" && p.occasion !== occasion) return false;
 
@@ -144,7 +162,7 @@ function Shop() {
           </FilterGroup>
 
           {/* Reset Filters */}
-          {(occasion !== "All" || selectedColor || selectedSize || maxPrice < 1000) && (
+          {(occasion !== "All" || selectedColor || selectedSize || maxPrice < 1000 || search) && (
             <button
               onClick={() => {
                 setOccasion("All");
@@ -161,6 +179,20 @@ function Shop() {
 
         {/* GRID */}
         <div>
+          {search && (
+            <div className="mb-6 p-4 rounded-xl bg-cream border border-border flex items-center justify-between animate-in slide-in-from-top duration-300">
+              <p className="text-sm">
+                Showing results for "<span className="font-semibold text-gold">{search}</span>"
+              </p>
+              <Link
+                to="/shop"
+                search={{ search: undefined }}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Clear Search
+              </Link>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-8">
             <p className="text-sm text-muted-foreground">{sorted.length} product{sorted.length !== 1 ? "s" : ""}</p>
             <select

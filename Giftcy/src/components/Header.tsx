@@ -1,10 +1,11 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Heart, LayoutDashboard, LogOut, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useCart } from "./CartContext";
 import { useAuth } from "./AuthContext";
 import { useWishlist } from "./WishlistContext";
 import { apiClient } from "@/lib/apiClient";
+import { useProducts } from "@/lib/useProducts";
 
 const nav = [
   { to: "/", label: "Home" },
@@ -18,10 +19,14 @@ const nav = [
 export function Header() {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { count, setOpen: setCart } = useCart();
   const { user, isAdmin, signOut } = useAuth();
   const { items: wishlistItems } = useWishlist();
+  const { products } = useProducts();
   const [settings, setSettings] = useState<any>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
@@ -78,7 +83,11 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-1 relative">
-            <button className="p-2 hover:text-gold transition-colors" aria-label="Search">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="p-2 hover:text-gold transition-colors"
+              aria-label="Search"
+            >
               <Search className="h-5 w-5" />
             </button>
             <div className="relative hidden sm:block">
@@ -184,6 +193,173 @@ export function Header() {
                 <button onClick={() => { setOpen(false); signOut(); }} className="py-3 serif text-xl text-left w-full block">Sign out</button>
               )}
             </nav>
+          </div>
+        </div>
+      )}
+
+      {searchOpen && (
+        <div className="fixed inset-0 z-50 bg-background/98 backdrop-blur-md flex flex-col justify-start animate-in fade-in duration-300">
+          <div className="mx-auto max-w-4xl w-full px-6 py-6 flex flex-col h-full overflow-hidden">
+            {/* Header close button */}
+            <div className="flex justify-end mb-6">
+              <button
+                onClick={() => {
+                  setSearchOpen(false);
+                  setSearchQuery("");
+                }}
+                className="p-2 rounded-full hover:bg-cream/50 text-foreground transition-all duration-200"
+                aria-label="Close search"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Input form */}
+            <div className="relative mb-8">
+              <input
+                type="text"
+                placeholder="Search premium gift bags..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+                className="w-full text-2xl lg:text-4xl serif outline-none bg-transparent text-foreground border-b border-gold/30 pb-4 focus:border-gold transition-colors placeholder:text-muted-foreground/30 pr-10"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && searchQuery.trim()) {
+                    navigate({ to: "/shop", search: { search: searchQuery.trim() } });
+                    setSearchOpen(false);
+                  }
+                }}
+              />
+              <Search className="absolute right-2 top-2 h-6 w-6 text-muted-foreground/50" />
+            </div>
+
+            {/* Popular/Recent Searches & Live Results */}
+            <div className="flex-1 overflow-y-auto pr-2 scrollbar-none">
+              {searchQuery.trim() === "" ? (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <div>
+                    <h4 className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-3 font-semibold">Popular Searches</h4>
+                    <div className="flex flex-wrap gap-2.5">
+                      {["Potli Bags", "Wedding Gift Bags", "Return Gift Bags", "Custom Printed Bags", "Silk", "Linen"].map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => setSearchQuery(tag)}
+                          className="px-4 py-2 rounded-full bg-cream hover:bg-gold hover:text-white transition duration-200 text-sm border border-border/50 text-foreground/80 font-medium"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-3 font-semibold font-sans">Shop by Occasion</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      {[
+                        { name: "Weddings & Ceremonies", label: "Wedding", bg: "bg-cream/40" },
+                        { name: "Birthdays & Parties", label: "Birthday", bg: "bg-cream/40" },
+                        { name: "Festivals & Celebrations", label: "Festive", bg: "bg-cream/40" },
+                        { name: "Corporate Favors", label: "Corporate", bg: "bg-cream/40" }
+                      ].map((occ) => (
+                        <Link
+                          key={occ.label}
+                          to="/shop"
+                          search={{ search: undefined } as any}
+                          onClick={() => {
+                            setSearchOpen(false);
+                            setSearchQuery("");
+                          }}
+                          className={`p-4 rounded-xl ${occ.bg} hover:border-gold hover:shadow-luxury border border-border/40 transition-all duration-200 block group`}
+                        >
+                          <span className="serif text-base block group-hover:text-gold transition-colors">{occ.name}</span>
+                          <span className="text-xs text-muted-foreground">Explore collection</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between mb-4 border-b border-border pb-2">
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest">
+                      {products.filter(
+                        (p) =>
+                          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          p.description.toLowerCase().includes(searchQuery.toLowerCase())
+                      ).length} product{products.filter(
+                        (p) =>
+                          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          p.description.toLowerCase().includes(searchQuery.toLowerCase())
+                      ).length !== 1 ? "s" : ""} found
+                    </span>
+                    {products.filter(
+                      (p) =>
+                        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+                    ).length > 0 && (
+                      <Link
+                        to="/shop"
+                        search={{ search: searchQuery }}
+                        onClick={() => setSearchOpen(false)}
+                        className="text-xs text-gold font-medium hover:underline flex items-center gap-1"
+                      >
+                        View all in shop →
+                      </Link>
+                    )}
+                  </div>
+
+                  {products.filter(
+                    (p) =>
+                      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      p.description.toLowerCase().includes(searchQuery.toLowerCase())
+                  ).length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground animate-in fade-in duration-300">
+                      <p className="serif text-lg text-foreground mb-1">No matches for "{searchQuery}"</p>
+                      <p className="text-sm">Try checking your spelling or looking for keywords like 'potli', 'gold', or 'bag'.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {products
+                        .filter(
+                          (p) =>
+                            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            p.description.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map((p) => (
+                          <Link
+                            key={p.slug}
+                            to="/products/$slug"
+                            params={{ slug: p.slug }}
+                            onClick={() => {
+                              setSearchOpen(false);
+                              setSearchQuery("");
+                            }}
+                            className="flex items-center gap-4 p-3 rounded-xl hover:bg-cream border border-transparent hover:border-border/60 transition-all duration-200 group"
+                          >
+                            <div className="h-16 w-16 rounded-lg overflow-hidden bg-cream border border-border/40 shrink-0">
+                              <img src={p.image} alt={p.name} className="h-full w-full object-cover group-hover:scale-105 transition duration-300" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] tracking-[0.15em] uppercase text-gold block font-semibold">{p.category}</span>
+                              <span className="serif text-base text-foreground font-medium block truncate group-hover:text-gold transition-colors">{p.name}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-sm font-semibold">₹{p.price}</span>
+                                {p.mrp > p.price && (
+                                  <span className="text-xs text-muted-foreground line-through">₹{p.mrp}</span>
+                                )}
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
