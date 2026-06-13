@@ -111,10 +111,11 @@ export const getProducts = async (req, res, next) => {
 export const getProductByIdOrSlug = async (req, res, next) => {
   try {
     const { idOrSlug } = req.params;
+    const cleanIdOrSlug = (idOrSlug || '').trim();
 
-    const query = idOrSlug.match(/^[0-9a-fA-F]{24}$/)
-      ? { _id: idOrSlug }
-      : { slug: idOrSlug };
+    const query = cleanIdOrSlug.match(/^[0-9a-fA-F]{24}$/)
+      ? { _id: cleanIdOrSlug }
+      : { slug: cleanIdOrSlug };
 
     const product = await Product.findOne(query).populate('category', 'name slug');
 

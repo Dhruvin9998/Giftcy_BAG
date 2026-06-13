@@ -208,7 +208,8 @@ export const updateOrderStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
 
-    if (!status || !['Processing', 'Shipped', 'Delivered', 'Cancelled'].includes(status)) {
+    const validStatuses = ['Pending', 'Approved', 'Rejected', 'Processing', 'Packed', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'];
+    if (!status || !validStatuses.includes(status)) {
       return next(new ApiError(400, 'Invalid status selection'));
     }
 
@@ -218,8 +219,10 @@ export const updateOrderStatus = async (req, res, next) => {
       return next(new ApiError(404, 'Order not found'));
     }
 
-    // Handle Cancelled transition restock logic
-    if (status === 'Cancelled' && order.status !== 'Cancelled') {
+    const isRestockedStatus = (s) => ['Cancelled', 'Rejected'].includes(s);
+
+    // Handle Cancelled/Rejected transition restock logic
+    if (isRestockedStatus(status) && !isRestockedStatus(order.status)) {
       for (const item of order.orderItems) {
         await Product.findByIdAndUpdate(item.product, {
           $inc: { stock: item.quantity },
@@ -227,8 +230,8 @@ export const updateOrderStatus = async (req, res, next) => {
       }
     }
 
-    // Handle stock re-decrement if transition is from Cancelled back to Processing
-    if (order.status === 'Cancelled' && status !== 'Cancelled') {
+    // Handle stock re-decrement if transition is from Cancelled/Rejected back to an active status
+    if (isRestockedStatus(order.status) && !isRestockedStatus(status)) {
       for (const item of order.orderItems) {
         await Product.findByIdAndUpdate(item.product, {
           $inc: { stock: -item.quantity },

@@ -57,6 +57,7 @@ function PDP() {
   const [activeImage, setActiveImage] = useState(product.image);
   const [pincode, setPincode] = useState("");
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "available" | "unavailable">("idle");
+  const [pincodeSettings, setPincodeSettings] = useState<{ mode: string; pincodes: string } | null>(null);
 
   // Reviews states
   const [reviews, setReviews] = useState<any[]>([]);
@@ -64,6 +65,20 @@ function PDP() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  useEffect(() => {
+    const fetchPincodeSettings = async () => {
+      try {
+        const res = await apiClient.get("/settings");
+        if (res?.success && res?.data?.pincode_settings) {
+          setPincodeSettings(res.data.pincode_settings);
+        }
+      } catch (err) {
+        console.error("Failed to load pincode settings", err);
+      }
+    };
+    fetchPincodeSettings();
+  }, []);
 
   useEffect(() => {
     setActiveImage(product.image);
@@ -94,11 +109,27 @@ function PDP() {
       return;
     }
     setPincodeStatus("loading");
+
+    const mode = pincodeSettings?.mode || "blacklist";
+    const listStr = pincodeSettings?.pincodes || "7, 8";
+    const patterns = listStr
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
     setTimeout(() => {
-      if (pincode.startsWith("7") || pincode.startsWith("8")) {
-        setPincodeStatus("unavailable");
+      const isMatched = patterns.some((pattern) => pincode.startsWith(pattern));
+      let available = false;
+      if (mode === "whitelist") {
+        available = isMatched;
       } else {
+        available = !isMatched;
+      }
+
+      if (available) {
         setPincodeStatus("available");
+      } else {
+        setPincodeStatus("unavailable");
       }
     }, 600);
   };

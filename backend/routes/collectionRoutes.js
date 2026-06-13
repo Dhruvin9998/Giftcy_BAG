@@ -67,7 +67,8 @@ router.get('/', async (req, res) => {
  */
 router.get('/:slug', async (req, res) => {
   try {
-    const collection = await Collection.findOne({ slug: req.params.slug }).populate('products');
+    const cleanSlug = (req.params.slug || '').trim();
+    const collection = await Collection.findOne({ slug: cleanSlug }).populate('products');
     if (!collection) {
       return res.status(404).json({
         success: false,

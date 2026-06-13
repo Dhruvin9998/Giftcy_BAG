@@ -18,9 +18,11 @@ router.post('/webhook/stripe', stripeWebhook);
 router.use(protect);
 
 router.route('/')
+  .get(getMyOrders)
   .post(createOrder);
 
 router.post('/verify-razorpay', verifyRazorpayPayment);
+router.post('/verify', verifyRazorpayPayment);
 router.get('/my-orders', getMyOrders);
 
 router.route('/:id')

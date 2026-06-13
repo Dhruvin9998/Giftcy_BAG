@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Category from '../models/Category.js';
 import Product from '../models/Product.js';
 import Settings from '../models/Settings.js';
+import User from '../models/User.js';
 import { setupMockDb } from './mockDbSetup.js';
 
 const seedData = async () => {
@@ -160,10 +161,30 @@ const seedData = async () => {
             storyImage: "https://images.unsplash.com/photo-1512909006721-3d6018887383?w=800",
             craftImage: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800"
           }
+        },
+        {
+          key: "pincode_settings",
+          value: {
+            mode: "blacklist",
+            pincodes: "7, 8"
+          }
         }
       ];
       await Settings.insertMany(defaultSettings);
       console.log('Site CMS settings successfully seeded.');
+    }
+
+    const adminExists = await User.findOne({ email: 'admin@giftcy.com' });
+    if (!adminExists) {
+      console.log('Seeding initial admin user...');
+      await User.create({
+        name: 'Admin User',
+        email: 'admin@giftcy.com',
+        password: 'adminpassword',
+        role: 'admin',
+        isVerified: true
+      });
+      console.log('Admin user successfully seeded.');
     }
   } catch (error) {
     console.error(`Seeding error: ${error.message}`);

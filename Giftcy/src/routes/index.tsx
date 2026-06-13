@@ -141,6 +141,8 @@ function Home() {
   const [subscribed, setSubscribed] = useState(false);
   const [settings, setSettings] = useState<any>(null);
 
+  const [dbCollections, setDbCollections] = useState<any[]>([]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -148,8 +150,12 @@ function Home() {
         if (res?.success && res?.data) {
           setSettings(res.data);
         }
+        const colRes = await apiClient.get("/collections");
+        if (colRes?.success && Array.isArray(colRes.data?.collections)) {
+          setDbCollections(colRes.data.collections);
+        }
       } catch (err) {
-        console.error("Failed to load settings", err);
+        console.error("Failed to load settings or collections", err);
       }
     })();
   }, []);
@@ -302,6 +308,20 @@ function Home() {
             );
 
           case "collections":
+            const activeCollections = dbCollections.length > 0
+              ? dbCollections.map((col) => ({
+                  name: col.name,
+                  img: col.image || wedding,
+                  count: col.productCount || 0,
+                  slug: col.slug,
+                }))
+              : [
+                  { name: "Wedding", img: wedding, count: 42, slug: "wedding-gift-bags" },
+                  { name: "Festive", img: festive, count: 28, slug: "festive-bags" },
+                  { name: "Return Gifts", img: ret, count: 36, slug: "return-gift-bags" },
+                  { name: "Birthday", img: birthday, count: 22, slug: "birthday" },
+                ];
+
             return (
               <section key="collections" className="mx-auto max-w-7xl px-5 lg:px-10 py-20 lg:py-28">
                 <div className="flex items-end justify-between mb-10 lg:mb-14">
@@ -321,7 +341,7 @@ function Home() {
                   </Link>
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-                  {collections.map((c, i) => (
+                  {activeCollections.map((c, i) => (
                     <motion.div
                       key={c.name}
                       initial={{ opacity: 0, y: 30 }}
@@ -330,7 +350,8 @@ function Home() {
                       transition={{ duration: 0.6, delay: i * 0.08 }}
                     >
                       <Link
-                        to="/shop"
+                        to="/collections/$slug"
+                        params={{ slug: c.slug }}
                         className="group block relative aspect-[3/4] rounded-2xl overflow-hidden"
                       >
                         <img

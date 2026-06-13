@@ -24,4 +24,5 @@ process.on('unhandledRejection', (err) => {
   server.close(() => {
     process.exit(1);
   });
+// Trigger restart
 });

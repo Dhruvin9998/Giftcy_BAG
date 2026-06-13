@@ -5,8 +5,53 @@ import { useAuth } from "./AuthContext";
 import { dbToProduct, type DBProduct } from "@/lib/useProducts";
 import { toast } from "sonner";
 
-export type CartItem = { product: Product; qty: number; size?: string; color?: string };
+export type CartItem = {
+  product: Product;
+  qty: number;
+  size?: string;
+  color?: string;
+  productId: string;
+  productName: string;
+  productImage: string;
+  variant: string;
+  quantity: number;
+  price: number;
+  totalPrice: number;
+};
 export type AppliedCoupon = { code: string; discount: number };
+
+const mapDbItemToCartItem = (item: any): CartItem => {
+  const product = dbToProduct(item.product as DBProduct);
+  return {
+    product,
+    qty: item.quantity,
+    size: item.size || "M",
+    color: item.color || "Ivory",
+    productId: product.id,
+    productName: product.name,
+    productImage: product.image,
+    variant: `${item.color || "Ivory"} / ${item.size || "M"}`,
+    quantity: item.quantity,
+    price: product.price,
+    totalPrice: product.price * item.quantity,
+  };
+};
+
+const mapGuestItemToCartItem = (it: any): CartItem => {
+  return {
+    product: it.product,
+    qty: it.qty,
+    size: it.size || "M",
+    color: it.color || "Ivory",
+    productId: it.product.id,
+    productName: it.product.name,
+    productImage: it.product.image,
+    variant: `${it.color || "Ivory"} / ${it.size || "M"}`,
+    quantity: it.qty,
+    price: it.product.price,
+    totalPrice: it.product.price * it.qty,
+  };
+};
 
 type CartCtx = {
   items: CartItem[];
@@ -47,12 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           // Map DB items to frontend CartItem format
           const mapped = dbItems
             .filter((item: any) => item.product !== null)
-            .map((item: any) => ({
-              product: dbToProduct(item.product as DBProduct),
-              qty: item.quantity,
-              size: item.size || "M",
-              color: item.color || "Ivory",
-            }));
+            .map(mapDbItemToCartItem);
 
           // Merge guest cart items from localStorage if they exist
           const localCartRaw = localStorage.getItem("giftcy_cart");
@@ -83,12 +123,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   const finalDbItems = mergedRes.data.items || [];
                   const finalMapped = finalDbItems
                     .filter((item: any) => item.product !== null)
-                    .map((item: any) => ({
-                      product: dbToProduct(item.product as DBProduct),
-                      qty: item.quantity,
-                      size: item.size || "M",
-                      color: item.color || "Ivory",
-                    }));
+                    .map(mapDbItemToCartItem);
                   setItems(finalMapped);
                 }
               } else {
@@ -109,7 +144,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const localCart = localStorage.getItem("giftcy_cart");
       if (localCart) {
         try {
-          setItems(JSON.parse(localCart));
+          setItems(JSON.parse(localCart).map(mapGuestItemToCartItem));
         } catch (e) {
           setItems([]);
         }
@@ -142,12 +177,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setItems(
             dbItems
               .filter((item: any) => item.product !== null)
-              .map((item: any) => ({
-                product: dbToProduct(item.product as DBProduct),
-                qty: item.quantity,
-                size: item.size || "M",
-                color: item.color || "Ivory",
-              }))
+              .map(mapDbItemToCartItem)
           );
           toast.success(`${product.name} added to cart`);
         }
@@ -161,9 +191,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         let next = [];
         if (i >= 0) {
           next = [...prev];
-          next[i] = { ...next[i], qty: next[i].qty + qty };
+          next[i] = mapGuestItemToCartItem({ ...next[i], qty: next[i].qty + qty });
         } else {
-          next = [...prev, { product, qty, size, color }];
+          next = [...prev, mapGuestItemToCartItem({ product, qty, size, color })];
         }
         localStorage.setItem("giftcy_cart", JSON.stringify(next));
         return next;
@@ -186,12 +216,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setItems(
             dbItems
               .filter((item: any) => item.product !== null)
-              .map((item: any) => ({
-                product: dbToProduct(item.product as DBProduct),
-                qty: item.quantity,
-                size: item.size || "M",
-                color: item.color || "Ivory",
-              }))
+              .map(mapDbItemToCartItem)
           );
           toast.success(`${item.product.name} removed from cart`);
         }
@@ -223,12 +248,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setItems(
             dbItems
               .filter((item: any) => item.product !== null)
-              .map((item: any) => ({
-                product: dbToProduct(item.product as DBProduct),
-                qty: item.quantity,
-                size: item.size || "M",
-                color: item.color || "Ivory",
-              }))
+              .map(mapDbItemToCartItem)
           );
         }
       } catch (error: any) {
@@ -237,7 +257,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } else {
       // Guest local update
       setItems((prev) => {
-        const next = prev.map((i) => (i.product.slug === slug ? { ...i, qty: safeQty } : i));
+        const next = prev.map((i) => (i.product.slug === slug ? mapGuestItemToCartItem({ ...i, qty: safeQty }) : i));
         localStorage.setItem("giftcy_cart", JSON.stringify(next));
         return next;
       });

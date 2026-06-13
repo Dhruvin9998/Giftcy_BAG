@@ -19,6 +19,12 @@ router.route('/')
 router.route('/clear')
   .delete(clearCart);
 
+router.post('/add', addToCart);
+router.put('/update', updateCartItemQuantity);
+router.post('/update', updateCartItemQuantity);
+router.delete('/remove', removeFromCart);
+router.post('/remove', removeFromCart);
+
 router.route('/:productId')
   .put(updateCartItemQuantity)
   .delete(removeFromCart);

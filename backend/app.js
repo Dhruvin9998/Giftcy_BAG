@@ -1,3 +1,4 @@
+import './config/env.js';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -5,7 +6,6 @@ import helmet from 'helmet';
 import mongoSanitize from 'express-mongo-sanitize';
 import xss from 'xss-clean';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 
 // Import Route Handlers
 import authRoutes from './routes/authRoutes.js';
@@ -29,9 +29,10 @@ import mediaRoutes from './routes/mediaRoutes.js';
 import errorHandler from './middleware/errorMiddleware.js';
 import { apiLimiter } from './middleware/securityMiddleware.js';
 import ApiError from './utils/apiError.js';
+import { protect } from './middleware/authMiddleware.js';
+import { createOrder, verifyRazorpayPayment } from './controllers/orderController.js';
 
-// Load Env variables
-dotenv.config();
+
 
 const app = express();
 
@@ -48,7 +49,11 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
 // 4. Set Security HTTP Headers (helmet)
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // 5. CORS Configuration
 const allowedOrigins = [
@@ -92,6 +97,8 @@ app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/orders', orderRoutes);
+app.post('/api/v1/checkout/create-order', protect, createOrder);
+app.post('/api/v1/payment/verify', protect, verifyRazorpayPayment);
 app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/coupons', couponRoutes);
 app.use('/api/v1/admin', adminRoutes);

@@ -42,6 +42,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    phone: {
+      type: String,
+      default: null,
+    },
+    address: {
+      type: String,
+      default: null,
+    },
     otp: {
       type: String,
       default: null,

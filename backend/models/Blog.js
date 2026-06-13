@@ -54,6 +54,16 @@ blogSchema.pre('validate', function (next) {
       .replace(/\-\-+/g, '-')
       .replace(/^-+/, '')
       .replace(/-+$/, '');
+  } else if (this.slug) {
+    this.slug = this.slug
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-]+/g, '')
+      .replace(/\-\-+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
   }
   next();
 });

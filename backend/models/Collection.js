@@ -48,6 +48,16 @@ collectionSchema.pre('validate', function (next) {
       .replace(/\-\-+/g, '-') // Replace multiple - with single -
       .replace(/^-+/, '') // Trim - from start
       .replace(/-+$/, ''); // Trim - from end
+  } else if (this.slug) {
+    this.slug = this.slug
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-]+/g, '')
+      .replace(/\-\-+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
   }
   next();
 });

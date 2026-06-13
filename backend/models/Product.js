@@ -130,6 +130,16 @@ productSchema.pre('validate', function (next) {
       .replace(/^-+/, '') // Trim - from start
       .replace(/-+$/, '') // Trim - from end
       + '-' + Math.floor(1000 + Math.random() * 9000); // Add random 4-digit code to avoid collision
+  } else if (this.slug) {
+    this.slug = this.slug
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-]+/g, '')
+      .replace(/\-\-+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
   }
   next();
 });

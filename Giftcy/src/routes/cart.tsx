@@ -36,7 +36,15 @@ function CartPage() {
   const [placing, setPlacing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "Razorpay">("COD");
-  const [form, setForm] = useState({ name: "", email: user?.email ?? "", phone: "", address: "" });
+  const [form, setForm] = useState({
+    name: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: user?.phone ?? "",
+    address: user?.address ?? "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
 
   const apply = async () => {
     setApplying(true);
@@ -56,7 +64,9 @@ function CartPage() {
   };
 
   const place = async () => {
-    if (!form.name || !form.email || !form.address) return toast.error("Please fill all checkout fields");
+    if (!form.name || !form.email || !form.address || !form.city || !form.state || !form.pincode) {
+      return toast.error("Please fill all shipping details");
+    }
     if (!form.phone) return toast.error("Phone number is required for checkout");
     setPlacing(true);
     try {
@@ -69,8 +79,9 @@ function CartPage() {
         orderItems,
         shippingAddress: {
           address: form.address,
-          city: "Default City",
-          postalCode: "000000",
+          city: form.city,
+          state: form.state,
+          postalCode: form.pincode,
           country: "India",
           phone: form.phone,
         },
@@ -244,7 +255,12 @@ function CartPage() {
               <input className="i" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               <input className="i" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               <input className="i" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <textarea rows={3} className="i" placeholder="Shipping address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              <textarea rows={2} className="i" placeholder="Shipping address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="i" placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                <input className="i" placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+              </div>
+              <input className="i" placeholder="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} />
               
               {/* Payment Method */}
               <div className="mt-4 pt-3 border-t border-border">

@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiClient } from "@/lib/apiClient";
 
 export const Route = createFileRoute("/policies/$slug")({
   head: ({ params }) => {
@@ -115,6 +117,20 @@ const POLICIES: Record<string, PolicyContent> = {
 function PolicyPage() {
   const { slug } = Route.useParams();
   const policy = POLICIES[slug];
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/settings");
+        if (res?.success && res?.data) {
+          setSettings(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load settings in PolicyPage", err);
+      }
+    })();
+  }, []);
 
   if (!policy) {
     return (
@@ -125,6 +141,15 @@ function PolicyPage() {
       </div>
     );
   }
+
+  const contactEmail = settings?.contact_info?.email || "hello@giftcy.in";
+  const contactWa = settings?.contact_info?.whatsapp || "+91 99999 99999";
+
+  const formatBody = (body: string) => {
+    return body
+      .replace("hello@giftcy.in", contactEmail)
+      .replace("+91 99999 99999", contactWa);
+  };
 
   return (
     <section className="mx-auto max-w-4xl px-5 lg:px-10 py-12 lg:py-20 min-h-[70vh]">
@@ -147,7 +172,7 @@ function PolicyPage() {
           {policy.sections.map((sect, idx) => (
             <div key={idx} className="space-y-3">
               <h3 className="serif text-xl font-semibold text-foreground">{sect.heading}</h3>
-              <p className="text-muted-foreground text-sm lg:text-base leading-relaxed text-justify">{sect.body}</p>
+              <p className="text-muted-foreground text-sm lg:text-base leading-relaxed text-justify">{formatBody(sect.body)}</p>
             </div>
           ))}
         </div>

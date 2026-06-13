@@ -10,6 +10,7 @@ import Blog from '../models/Blog.js';
 import Banner from '../models/Banner.js';
 import BulkInquiry from '../models/BulkInquiry.js';
 import Collection from '../models/Collection.js';
+import Wishlist from '../models/Wishlist.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -34,7 +35,8 @@ export const setupMockDb = () => {
     Blog: [],
     Banner: [],
     BulkInquiry: [],
-    Collection: []
+    Collection: [],
+    Wishlist: []
   };
 
   // Helper to convert queries
@@ -366,6 +368,35 @@ export const setupMockDb = () => {
         const u = memDb.User.find(x => String(x._id) === String(doc.user));
         if (u) doc.user = u;
       }
+      if (doc.product && typeof doc.product !== 'object') {
+        const prod = memDb.Product.find(p => String(p._id) === String(doc.product));
+        if (prod) doc.product = prod;
+      }
+      if (doc.items && Array.isArray(doc.items)) {
+        doc.items.forEach(item => {
+          if (item.product && typeof item.product !== 'object') {
+            const prod = memDb.Product.find(p => String(p._id) === String(item.product));
+            if (prod) item.product = prod;
+          }
+        });
+      }
+      if (doc.products && Array.isArray(doc.products) && modelName !== 'Collection') {
+        doc.products = doc.products.map(pId => {
+          if (typeof pId !== 'object') {
+            const prod = memDb.Product.find(p => String(p._id) === String(pId));
+            return prod || pId;
+          }
+          return pId;
+        });
+      }
+      if (doc.orderItems && Array.isArray(doc.orderItems)) {
+        doc.orderItems.forEach(item => {
+          if (item.product && typeof item.product !== 'object') {
+            const prod = memDb.Product.find(p => String(p._id) === String(item.product));
+            if (prod) item.product = prod;
+          }
+        });
+      }
       if (modelName === 'Collection') {
         doc.products = memDb.Product.filter(p => p.collections && p.collections.some(cid => String(cid) === String(doc._id)));
       }
@@ -395,13 +426,14 @@ export const setupMockDb = () => {
       const doc = makeDoc(modelName, item);
       const queryBuilder = {
         populate: function() {
-          performPopulate(doc);
+          if (doc) performPopulate(doc);
           return this;
         },
         select: function() { return this; },
-        then: function(resolve) { return Promise.resolve(resolve(doc)); }
+        then: function(resolve) { return Promise.resolve(resolve(doc)); },
+        catch: function(reject) { return Promise.reject(reject); }
       };
-      return doc ? queryBuilder : { then: (resolve) => Promise.resolve(resolve(null)) };
+      return queryBuilder;
     };
 
     ModelClass.findById = function(id) {
@@ -409,12 +441,13 @@ export const setupMockDb = () => {
       const doc = makeDoc(modelName, item);
       const queryBuilder = {
         populate: function() {
-          performPopulate(doc);
+          if (doc) performPopulate(doc);
           return this;
         },
-        then: function(resolve) { return Promise.resolve(resolve(doc)); }
+        then: function(resolve) { return Promise.resolve(resolve(doc)); },
+        catch: function(reject) { return Promise.reject(reject); }
       };
-      return doc ? queryBuilder : { then: (resolve) => Promise.resolve(resolve(null)) };
+      return queryBuilder;
     };
 
     ModelClass.create = async (data) => {
@@ -457,6 +490,72 @@ export const setupMockDb = () => {
     ModelClass.findByIdAndDelete = async (id) => {
       const idx = memDb[modelName].findIndex(x => String(x._id) === String(id));
       if (idx === -1) return null;
+      const deleted = memDb[modelName][idx];
+      memDb[modelName].splice(idx, 1);
+      return makeDoc(modelName, deleted);
+    };
+
+    ModelClass.findOneAndUpdate = async (query = {}, update = {}, options = {}) => {
+      const item = memDb[modelName].find(item => matchQuery(item, query));
+      if (!item) {
+        if (options.upsert) {
+          const doc = makeDoc(modelName, { ...query, ...update });
+          const cleanData = { ...doc };
+          delete cleanData.save;
+          delete cleanData.comparePassword;
+          delete cleanData.isValid;
+          memDb[modelName].push(cleanData);
+          return doc;
+        }
+        return null;
+      }
+      
+      const idx = memDb[modelName].findIndex(x => String(x._id) === String(item._id));
+      let updated = { ...memDb[modelName][idx] };
+      
+      if (update.$inc) {
+        for (const k of Object.keys(update.$inc)) {
+          updated[k] = (updated[k] || 0) + update.$inc[k];
+        }
+      }
+      
+      // apply basic updates
+      const cleanUpdate = { ...update };
+      delete cleanUpdate.$inc;
+      delete cleanUpdate.$addToSet;
+      delete cleanUpdate.$pull;
+      
+      updated = { ...updated, ...cleanUpdate };
+      
+      if (update.$addToSet) {
+        for (const key of Object.keys(update.$addToSet)) {
+          const val = update.$addToSet[key];
+          if (!Array.isArray(updated[key])) {
+            updated[key] = updated[key] ? [updated[key]] : [];
+          }
+          if (!updated[key].some(x => String(x) === String(val))) {
+            updated[key].push(val);
+          }
+        }
+      }
+      
+      if (update.$pull) {
+        for (const key of Object.keys(update.$pull)) {
+          const val = update.$pull[key];
+          if (Array.isArray(updated[key])) {
+            updated[key] = updated[key].filter(x => String(x) !== String(val));
+          }
+        }
+      }
+      
+      memDb[modelName][idx] = updated;
+      return makeDoc(modelName, updated);
+    };
+
+    ModelClass.findOneAndDelete = async (query = {}) => {
+      const item = memDb[modelName].find(item => matchQuery(item, query));
+      if (!item) return null;
+      const idx = memDb[modelName].findIndex(x => String(x._id) === String(item._id));
       const deleted = memDb[modelName][idx];
       memDb[modelName].splice(idx, 1);
       return makeDoc(modelName, deleted);
@@ -523,4 +622,5 @@ export const setupMockDb = () => {
   mockModel(Banner, 'Banner');
   mockModel(BulkInquiry, 'BulkInquiry');
   mockModel(Collection, 'Collection');
+  mockModel(Wishlist, 'Wishlist');
 };

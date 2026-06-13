@@ -15,7 +15,8 @@ export const getAllBlogs = async (req, res, next) => {
 
 export const getBlogBySlug = async (req, res, next) => {
   try {
-    const blog = await Blog.findOne({ slug: req.params.slug });
+    const cleanSlug = (req.params.slug || '').trim();
+    const blog = await Blog.findOne({ slug: cleanSlug });
     if (!blog) {
       return next(new ApiError(404, 'Blog post not found'));
     }

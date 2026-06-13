@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -93,15 +94,20 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useRouterState({
+    select: (state) => state.location,
+  });
+  const hideLayout = location.pathname === "/auth" || location.pathname.startsWith("/admin");
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <WishlistProvider>
           <CartProvider>
-            <Header />
+            {!hideLayout && <Header />}
             <main><Outlet /></main>
-            <Footer />
-            <WhatsAppButton />
+            {!hideLayout && <Footer />}
+            {!hideLayout && <WhatsAppButton />}
             <CartDrawer />
             <Toaster position="top-center" />
           </CartProvider>

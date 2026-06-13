@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Crown, MessageCircle, Upload } from "lucide-react";
 import { apiClient } from "@/lib/apiClient";
 import { toast } from "sonner";
@@ -24,6 +24,23 @@ function Bulk() {
   const [message, setMessage] = useState("");
   const [artworkUrl, setArtworkUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [waNumber, setWaNumber] = useState("919999999999");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/settings");
+        if (res?.success && res?.data?.contact_info?.whatsapp) {
+          const cleanNum = res.data.contact_info.whatsapp.replace(/\D/g, "");
+          if (cleanNum) {
+            setWaNumber(cleanNum);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load settings in Bulk", err);
+      }
+    })();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +151,7 @@ function Bulk() {
               <button type="submit" disabled={submitting} className="px-7 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 text-sm disabled:opacity-60">
                 {submitting ? "Submitting Inquiry..." : "Submit Inquiry"}
               </button>
-              <a href="https://wa.me/919999999999" className="px-7 py-3.5 rounded-full bg-[#25D366] text-white inline-flex items-center gap-2 text-sm">
+              <a href={`https://wa.me/${waNumber}`} className="px-7 py-3.5 rounded-full bg-[#25D366] text-white inline-flex items-center gap-2 text-sm">
                 <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
               </a>
             </div>

@@ -964,6 +964,22 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
             <Field label="Bulk wholesale Price (₹)"><input type="number" className="i" value={bulkPrice} onChange={(e) => setBulkPrice(Number(e.target.value))} /></Field>
 
             <Field label="SKU reference"><input className="i" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. GFT-IVY-01" /></Field>
+            <Field label="Stock Availability">
+              <select
+                value={stock > 0 ? "in-stock" : "out-of-stock"}
+                onChange={(e) => {
+                  if (e.target.value === "out-of-stock") {
+                    setStock(0);
+                  } else {
+                    if (stock <= 0) setStock(100);
+                  }
+                }}
+                className="i cursor-pointer"
+              >
+                <option value="in-stock">In Stock (Available)</option>
+                <option value="out-of-stock">Out of Stock (Unavailable)</option>
+              </select>
+            </Field>
             <Field label="Stock Count"><input type="number" className="i" value={stock} onChange={(e) => setStock(Number(e.target.value))} /></Field>
             <Field label="Low Stock Alert Level"><input type="number" className="i" value={lowStockAlert} onChange={(e) => setLowStockAlert(Number(e.target.value))} /></Field>
 
@@ -1033,13 +1049,27 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
 
             <div className="space-y-4">
               <Field label="Main Product Image URL" full>
-                <input className="i" value={mainImage} onChange={(e) => setMainImage(e.target.value)} placeholder="Paste Unsplash / static media URL..." />
+                <div className="flex gap-2 items-center">
+                  <input className="i flex-1" value={mainImage} onChange={(e) => setMainImage(e.target.value)} placeholder="Paste Unsplash / static media URL..." />
+                  <ImageUploader onUploadSuccess={(url) => setMainImage(url)} buttonText="Upload Main" />
+                </div>
               </Field>
               <Field label="Additional Image URLs (Comma-separated list)" full>
-                <input className="i" value={otherImages} onChange={(e) => setOtherImages(e.target.value)} placeholder="URL1, URL2, URL3..." />
+                <div className="flex gap-2 items-center">
+                  <input className="i flex-1" value={otherImages} onChange={(e) => setOtherImages(e.target.value)} placeholder="URL1, URL2, URL3..." />
+                  <ImageUploader
+                    onUploadSuccess={(url) => {
+                      setOtherImages((prev) => (prev ? `${prev}, ${url}` : url));
+                    }}
+                    buttonText="Upload Additional"
+                  />
+                </div>
               </Field>
               <Field label="Presentation Video URL (MP4 / WebM)" full>
-                <input className="i" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="URL to mp4 file..." />
+                <div className="flex gap-2 items-center">
+                  <input className="i flex-1" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="URL to mp4 file..." />
+                  <ImageUploader onUploadSuccess={(url) => setVideo(url)} accept="video/*" buttonText="Upload Video" />
+                </div>
               </Field>
             </div>
           </div>
@@ -1304,9 +1334,14 @@ function CollectionsCMS() {
     if (!name.trim()) return toast.error("Collection name is required");
     setSaving(true);
 
+    const cleanSlug = (slug.trim() || name.trim())
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
     const payload = {
       name,
-      slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      slug: cleanSlug,
       description,
       image: image || "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800",
       products: selectedProds,
@@ -1357,7 +1392,12 @@ function CollectionsCMS() {
           <form onSubmit={save} className="space-y-4">
             <Field label="Collection Name"><input required className="i" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Wedding Bags, Birthday Pouches" /></Field>
             <Field label="URL Slug"><input className="i" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="e.g. wedding-bags" /></Field>
-            <Field label="Featured Cover Image URL"><input className="i" value={image} onChange={(e) => setImage(e.target.value)} placeholder="Paste image asset URL..." /></Field>
+            <Field label="Featured Cover Image URL">
+              <div className="flex gap-2 items-center">
+                <input className="i flex-1" value={image} onChange={(e) => setImage(e.target.value)} placeholder="Paste image asset URL..." />
+                <ImageUploader onUploadSuccess={(url) => setImage(url)} />
+              </div>
+            </Field>
             <Field label="Collection Description text"><textarea rows={3} className="i rounded-xl py-3" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
 
             <div className="gold-divider" />
@@ -1532,7 +1572,12 @@ function BannersCMS() {
           <form onSubmit={save} className="space-y-4">
             <Field label="Banner Main Title"><input required className="i" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Wedding Collection 2026" /></Field>
             <Field label="Banner Subtitle"><input className="i" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="e.g. Luxury Drawstring Potli Bags" /></Field>
-            <Field label="Background Image URL"><input required className="i" value={image} onChange={(e) => setImage(e.target.value)} placeholder="Paste image asset URL..." /></Field>
+            <Field label="Background Image URL">
+              <div className="flex gap-2 items-center">
+                <input required className="i flex-1" value={image} onChange={(e) => setImage(e.target.value)} placeholder="Paste image asset URL..." />
+                <ImageUploader onUploadSuccess={(url) => setImage(url)} />
+              </div>
+            </Field>
             <Field label="Button Text (CTA)"><input className="i" value={ctaText} onChange={(e) => setCtaText(e.target.value)} placeholder="Shop Now" /></Field>
             <Field label="Button Link (CTA Link)"><input className="i" value={ctaLink} onChange={(e) => setCtaLink(e.target.value)} placeholder="/shop?category=wedding" /></Field>
 
@@ -1706,7 +1751,12 @@ function CategoryCMS() {
           <form onSubmit={save} className="space-y-4">
             <Field label="Category Name"><input required className="i" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Potli Bags, Jute Bags" /></Field>
             <Field label="URL Slug"><input className="i" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="e.g. potli-bags" /></Field>
-            <Field label="Category Image Icon URL"><input className="i" value={image} onChange={(e) => setImage(e.target.value)} placeholder="Paste thumbnail URL..." /></Field>
+            <Field label="Category Image Icon URL">
+              <div className="flex gap-2 items-center">
+                <input className="i flex-1" value={image} onChange={(e) => setImage(e.target.value)} placeholder="Paste thumbnail URL..." />
+                <ImageUploader onUploadSuccess={(url) => setImage(url)} />
+              </div>
+            </Field>
 
             <div className="flex gap-2 pt-2">
               {editingId && <button type="button" onClick={clearForm} className="flex-1 py-2.5 rounded-full border border-border text-xs font-medium bg-white">Cancel</button>}
@@ -2014,7 +2064,7 @@ function OrdersAdmin() {
                       onChange={(e) => setStatus(o._id, e.target.value)}
                       className="px-3 py-1.5 rounded-full border border-border text-xs bg-white font-medium hover:border-gold transition cursor-pointer"
                     >
-                      {["Pending", "Processing", "Packed", "Shipped", "Delivered", "Cancelled", "Refunded"].map((s) => (
+                      {["Pending", "Approved", "Rejected", "Processing", "Packed", "Shipped", "Delivered", "Cancelled", "Refunded"].map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
@@ -2405,7 +2455,12 @@ function BlogsAdmin() {
           <form onSubmit={save} className="space-y-4">
             <Field label="Blog Title"><input required className="i" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sustainable wrapping hacks" /></Field>
             <Field label="URL Slug"><input className="i" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="e.g. sustainable-luxury-wrapping" /></Field>
-            <Field label="Featured Image URL"><input className="i" value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="Paste banner image URL..." /></Field>
+            <Field label="Featured Image URL">
+              <div className="flex gap-2 items-center">
+                <input className="i flex-1" value={featuredImage} onChange={(e) => setFeaturedImage(e.target.value)} placeholder="Paste banner image URL..." />
+                <ImageUploader onUploadSuccess={(url) => setFeaturedImage(url)} />
+              </div>
+            </Field>
             <Field label="Author name"><input className="i" value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Giftcy Editor" /></Field>
             
             <Field label="Blog Content Markdown / text">
@@ -2509,6 +2564,10 @@ function SettingsAdmin() {
   const [colorGold, setColorGold] = useState("#C9A84C");
   const [colorCream, setColorCream] = useState("#FDFBF7");
 
+  // Pincode settings states
+  const [pincodeMode, setPincodeMode] = useState("blacklist");
+  const [pincodesList, setPincodesList] = useState("7, 8");
+
   const loadSettings = async () => {
     setLoading(true);
     try {
@@ -2532,6 +2591,10 @@ function SettingsAdmin() {
           setColorGold(data.general_settings.colorGold || "#C9A84C");
           setColorCream(data.general_settings.colorCream || "#FDFBF7");
         }
+        if (data.pincode_settings) {
+          setPincodeMode(data.pincode_settings.mode || "blacklist");
+          setPincodesList(data.pincode_settings.pincodes || "");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -2547,10 +2610,12 @@ function SettingsAdmin() {
     try {
       const payloadContact = { whatsapp, email, phone, address };
       const payloadGeneral = { brandName, logoUrl, favicon, insta, facebook, amazon, flipkart, colorGold, colorCream };
+      const payloadPincodes = { mode: pincodeMode, pincodes: pincodesList };
 
       await Promise.all([
         apiClient.put("/settings/contact_info", { value: payloadContact }),
-        apiClient.put("/settings/general_settings", { value: payloadGeneral })
+        apiClient.put("/settings/general_settings", { value: payloadGeneral }),
+        apiClient.put("/settings/pincode_settings", { value: payloadPincodes })
       ]);
 
       toast.success("Website settings updated successfully!");
@@ -2575,8 +2640,18 @@ function SettingsAdmin() {
           <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-3 mb-4">Brand Information & Assets</h3>
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Brand Name"><input className="i" value={brandName} onChange={(e) => setBrandName(e.target.value)} /></Field>
-            <Field label="Logo Graphic Image URL"><input className="i" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="URL link to brand logo" /></Field>
-            <Field label="Favicon URL"><input className="i" value={favicon} onChange={(e) => setFavicon(e.target.value)} placeholder="URL link to favicon icon" /></Field>
+            <Field label="Logo Graphic Image URL">
+              <div className="flex gap-2 items-center">
+                <input className="i flex-1" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="URL link to brand logo" />
+                <ImageUploader onUploadSuccess={(url) => setLogoUrl(url)} />
+              </div>
+            </Field>
+            <Field label="Favicon URL">
+              <div className="flex gap-2 items-center">
+                <input className="i flex-1" value={favicon} onChange={(e) => setFavicon(e.target.value)} placeholder="URL link to favicon icon" />
+                <ImageUploader onUploadSuccess={(url) => setFavicon(url)} />
+              </div>
+            </Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Brand Theme Color (Gold)">
                 <div className="flex gap-2 items-center">
@@ -2611,6 +2686,30 @@ function SettingsAdmin() {
             <Field label="Facebook Profile Link"><input className="i" value={facebook} onChange={(e) => setFacebook(e.target.value)} /></Field>
             <Field label="Amazon Store Link"><input className="i" value={amazon} onChange={(e) => setAmazon(e.target.value)} /></Field>
             <Field label="Flipkart Store Link"><input className="i" value={flipkart} onChange={(e) => setFlipkart(e.target.value)} /></Field>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-3 mb-4">Delivery Availability (Pincodes)</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Filter Mode">
+              <select
+                className="i"
+                value={pincodeMode}
+                onChange={(e) => setPincodeMode(e.target.value)}
+              >
+                <option value="blacklist">Blacklist (Block listed pincodes, allow others)</option>
+                <option value="whitelist">Whitelist (Allow only listed pincodes, block others)</option>
+              </select>
+            </Field>
+            <Field label="Pincodes / Prefixes List (Comma separated)">
+              <input
+                className="i"
+                value={pincodesList}
+                onChange={(e) => setPincodesList(e.target.value)}
+                placeholder="e.g. 7, 8 (or specific pincodes like 110001, 380009)"
+              />
+            </Field>
           </div>
         </div>
       </div>
@@ -3070,6 +3169,61 @@ function Field({ label, full, children }: { label: string; full?: boolean; child
     <div className={full ? "md:col-span-2 space-y-1" : "space-y-1"}>
       <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">{label}</label>
       {children}
+    </div>
+  );
+}
+
+interface ImageUploaderProps {
+  onUploadSuccess: (url: string) => void;
+  buttonText?: string;
+  accept?: string;
+}
+
+function ImageUploader({ onUploadSuccess, buttonText = "Upload file", accept = "image/*" }: ImageUploaderProps) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", files[0]);
+
+      const res = await apiClient.post("/media", formData);
+      if (res?.success && res?.data?.url) {
+        toast.success("File uploaded successfully!");
+        onUploadSuccess(res.data.url);
+      } else {
+        toast.error(res?.message || "Failed to upload file");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="inline-block shrink-0">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleUpload}
+        className="hidden"
+        accept={accept}
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="px-3.5 py-2.5 rounded-xl border border-border bg-[#FDFBF7] hover:border-gold hover:text-gold transition text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 h-11"
+      >
+        <Upload className="h-3.5 w-3.5" /> {uploading ? "Uploading..." : buttonText}
+      </button>
     </div>
   );
 }

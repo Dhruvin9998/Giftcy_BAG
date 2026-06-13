@@ -1,9 +1,29 @@
+import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
+import { apiClient } from "@/lib/apiClient";
 
 export function WhatsAppButton() {
+  const [waNumber, setWaNumber] = useState("919999999999");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/settings");
+        if (res?.success && res?.data?.contact_info?.whatsapp) {
+          const cleanNum = res.data.contact_info.whatsapp.replace(/\D/g, "");
+          if (cleanNum) {
+            setWaNumber(cleanNum);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load settings in WhatsAppButton", err);
+      }
+    })();
+  }, []);
+
   return (
     <a
-      href="https://wa.me/919999999999"
+      href={`https://wa.me/${waNumber}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"

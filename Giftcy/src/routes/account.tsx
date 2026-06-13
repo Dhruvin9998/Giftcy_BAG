@@ -35,7 +35,7 @@ type Order = {
   totalPrice: number;
   isPaid: boolean;
   paidAt?: string;
-  status: "Processing" | "Shipped" | "Delivered" | "Cancelled";
+  status: "Pending" | "Approved" | "Rejected" | "Processing" | "Packed" | "Shipped" | "Delivered" | "Cancelled" | "Refunded";
   createdAt: string;
 };
 
@@ -355,11 +355,30 @@ function AccountPage() {
 function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const statusColors = {
+    Pending: "bg-orange-100 text-orange-800 border-orange-200",
+    Approved: "bg-teal-100 text-teal-800 border-teal-200",
+    Rejected: "bg-red-100 text-red-800 border-red-200",
     Processing: "bg-amber-100 text-amber-800 border-amber-200",
+    Packed: "bg-purple-100 text-purple-800 border-purple-200",
     Shipped: "bg-blue-100 text-blue-800 border-blue-200",
     Delivered: "bg-emerald-100 text-emerald-800 border-emerald-200",
     Cancelled: "bg-red-100 text-red-800 border-red-200",
+    Refunded: "bg-gray-100 text-gray-800 border-gray-200",
   };
+
+  const getStatusStepIndex = (s: string) => {
+    switch (s) {
+      case "Pending": return 0;
+      case "Approved": return 1;
+      case "Processing": return 2;
+      case "Packed": return 3;
+      case "Shipped": return 4;
+      case "Delivered": return 5;
+      default: return 0;
+    }
+  };
+
+  const showTimeline = !["Cancelled", "Rejected", "Refunded"].includes(order.status);
 
   return (
     <div className="border border-border/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-soft transition bg-background">
@@ -378,7 +397,7 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
           <p className="text-sm font-semibold text-gold">₹{order.totalPrice}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[order.status]}`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[order.status] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
             {order.status}
           </span>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${order.isPaid ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-600 border-red-100"}`}>
@@ -408,7 +427,7 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
             >
               {expanded ? "Hide details" : "View details"}
             </button>
-            {order.status === "Processing" && (
+            {order.status === "Pending" && (
               <button
                 onClick={() => onCancel(order._id)}
                 className="text-xs text-destructive hover:bg-red-50 py-1.5 px-3 rounded-full border border-red-100 transition"
@@ -419,8 +438,8 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
           </div>
         </div>
 
-        {/* Visual Progress Stepper (Always visible if not Cancelled) */}
-        {order.status !== "Cancelled" && (
+        {/* Visual Progress Stepper (Always visible if not Cancelled/Rejected/Refunded) */}
+        {showTimeline && (
           <div className="mt-6 border-t border-border/40 pt-5 pb-2">
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-4 font-semibold font-sans">Order Timeline</span>
             <div className="flex items-center justify-between relative max-w-xl mx-auto px-4">
@@ -430,29 +449,22 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
               <div 
                 className="absolute top-4 left-6 h-0.5 bg-gold -z-0 transition-all duration-500" 
                 style={{ 
-                  width: order.status === "Processing" ? "25%" : 
-                         order.status === "Shipped" ? "75%" : 
-                         order.status === "Delivered" ? "100%" : "0%"
+                  width: `${(getStatusStepIndex(order.status) / 5) * 100}%`
                 }}
               />
               
               {/* Timeline Steps */}
               {[
-                { label: "Ordered", statusIdx: 0 },
-                { label: "Packed", statusIdx: 1 },
-                { label: "Shipped", statusIdx: 2 },
-                { label: "Out for Delivery", statusIdx: 3 },
-                { label: "Delivered", statusIdx: 4 }
+                { label: "Ordered", s: "Pending" },
+                { label: "Approved", s: "Approved" },
+                { label: "Processing", s: "Processing" },
+                { label: "Packed", s: "Packed" },
+                { label: "Shipped", s: "Shipped" },
+                { label: "Delivered", s: "Delivered" }
               ].map((step, idx) => {
-                const isCompleted = 
-                  (order.status === "Processing" && idx <= 1) || 
-                  (order.status === "Shipped" && idx <= 3) || 
-                  (order.status === "Delivered" && idx <= 4);
-                
-                const isCurrent = 
-                  (order.status === "Processing" && idx === 1) ||
-                  (order.status === "Shipped" && idx === 3) ||
-                  (order.status === "Delivered" && idx === 4);
+                const currentIdx = getStatusStepIndex(order.status);
+                const isCompleted = idx <= currentIdx;
+                const isCurrent = idx === currentIdx;
 
                 return (
                   <div key={idx} className="flex flex-col items-center relative z-10 flex-1">
@@ -465,7 +477,7 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
                     >
                       {idx + 1}
                     </div>
-                    <span className={`text-[10px] font-semibold tracking-wide mt-2 text-center block ${isCompleted ? "text-foreground" : "text-muted-foreground"}`}>{step.label}</span>
+                    <span className={`text-[9px] font-semibold tracking-wide mt-2 text-center block ${isCompleted ? "text-foreground" : "text-muted-foreground"}`}>{step.label}</span>
                   </div>
                 );
               })}

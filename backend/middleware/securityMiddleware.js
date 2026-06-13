@@ -1,6 +1,10 @@
 import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
 
-const isDev = process.env.NODE_ENV === 'development';
+// Ensure env variables are loaded before checking NODE_ENV due to ESM hoisting
+dotenv.config();
+
+const isDev = process.env.NODE_ENV !== 'production';
 
 // General rate limiter
 export const apiLimiter = rateLimit({
