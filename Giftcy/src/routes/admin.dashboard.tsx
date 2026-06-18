@@ -1224,7 +1224,7 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
   }, [otherImages]);
 
   const handleRemoveAdditionalImage = (urlToRemove: string) => {
-    const updated = otherImagesArray.filter(url => url !== urlToRemove);
+    const updated = otherImagesArray.filter((url: string) => url !== urlToRemove);
     setOtherImages(updated.join(", "));
   };
 
@@ -1518,7 +1518,7 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 block">Additional Product Images</label>
                 <div className="flex flex-wrap gap-4 items-start">
-                  {otherImagesArray.map((url, idx) => (
+                  {otherImagesArray.map((url: string, idx: number) => (
                     <div key={idx} className="relative w-28 h-28 rounded-xl overflow-hidden border border-[#EADFC9] shadow-sm group shrink-0">
                       <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -1538,7 +1538,7 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
                   <div className="w-28 h-28 rounded-xl border-2 border-dashed border-[#EADFC9] flex flex-col items-center justify-center bg-[#FDFBF7]/40 text-muted-foreground/60 shrink-0">
                     <Plus className="h-5 w-5 text-muted-foreground/45 mb-1" />
                     <ImageUploader
-                      onUploadSuccess={(url) => setOtherImages(prev => prev ? `${prev}, ${url}` : url)}
+                      onUploadSuccess={(url: string) => setOtherImages((prev: string) => prev ? `${prev}, ${url}` : url)}
                       buttonText="Add Image"
                     />
                   </div>
@@ -4289,7 +4289,7 @@ function CustomerSupportCMS({ onRefresh }: { onRefresh?: () => void }) {
         if (res.data.length > 0) {
           setSelectedMsg((prev: any) => {
             if (!prev) return res.data[0];
-            const updated = res.data.find(m => m._id === prev._id);
+            const updated = res.data.find((m: any) => m._id === prev._id);
             return updated || res.data[0];
           });
         } else {
