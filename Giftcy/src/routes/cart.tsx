@@ -180,7 +180,12 @@ function CartPage() {
           <div className="space-y-6">
             {items.map((it) => (
               <div key={it.product.slug} className="flex gap-5 pb-6 border-b border-border">
-                <img src={it.product.image} alt={it.product.name} className="h-32 w-32 rounded-xl object-cover bg-secondary" />
+                <img
+                  src={it.product.image}
+                  alt={it.product.name}
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; }}
+                  className="h-32 w-32 rounded-xl object-cover bg-secondary"
+                />
                 <div className="flex-1">
                   <div className="flex justify-between gap-2">
                     <div>

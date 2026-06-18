@@ -37,6 +37,8 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
     email: user.email,
     role: user.role,
     isVerified: user.isVerified,
+    phone: user.phone || '',
+    address: user.address || '',
   };
 
   new ApiResponse(statusCode, { user: userResponse, token }, message).send(res);
@@ -50,10 +52,12 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
 export const signup = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
+    console.log(`[Registration Request Received] Email: ${email}, Name: ${name}`);
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
+      console.warn(`[Registration Failed] User already exists with email: ${email}`);
       return next(new ApiError(400, 'User already exists with this email address'));
     }
 
@@ -62,7 +66,7 @@ export const signup = async (req, res, next) => {
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
     // Create user in inactive status
-    const user = await User.create({
+    const user = new User({
       name,
       email,
       password,
@@ -70,13 +74,29 @@ export const signup = async (req, res, next) => {
       otpExpires,
     });
 
+    console.log('[User Document Before Save] User details:', {
+      name: user.name,
+      email: user.email,
+      otp: user.otp,
+      isVerified: user.isVerified,
+    });
+
+    // Save user document
+    await user.save();
+    console.log('[Save Result] User saved successfully in database. ID:', user._id);
+
     // Send OTP verification email
     try {
       await sendOTPEmail(user.email, otp);
     } catch (err) {
-      // Rollback user creation if email fails to avoid dead states
-      await User.findByIdAndDelete(user._id);
-      return next(new ApiError(500, `Failed to send verification email. Details: ${err.message}`));
+      console.error(`Failed to send verification email to ${user.email}:`, err.message);
+      console.warn(`[OTP Code Fallback for ${user.email}] is: ${otp}`);
+      // DO NOT delete the user profile so the account exists and they can request a resend (resend-otp)
+      return new ApiResponse(
+        201,
+        { email: user.email, emailFailed: true },
+        'Account created successfully. We had trouble delivering the verification email, but you can try resending the OTP code.'
+      ).send(res);
     }
 
     new ApiResponse(
@@ -85,6 +105,7 @@ export const signup = async (req, res, next) => {
       'Registration successful. Please verify your email with the OTP sent.'
     ).send(res);
   } catch (error) {
+    console.error('[Database Registration Error]:', error.message);
     next(error);
   }
 };
@@ -162,16 +183,21 @@ export const resendOTP = async (req, res, next) => {
     user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
+    let emailFailed = false;
     try {
       await sendOTPEmail(user.email, otp);
     } catch (err) {
-      return next(new ApiError(500, `Failed to send verification email. Details: ${err.message}`));
+      console.error(`Failed to resend verification email to ${user.email}:`, err.message);
+      console.warn(`[OTP Code Fallback for ${user.email}] is: ${otp}`);
+      emailFailed = true;
     }
 
     new ApiResponse(
       200,
-      { email: user.email },
-      'A new verification code has been sent to your email.'
+      { email: user.email, emailFailed },
+      emailFailed
+        ? 'We had trouble delivering the verification email. You can retrieve the code directly.'
+        : 'A new verification code has been sent to your email.'
     ).send(res);
   } catch (error) {
     next(error);
@@ -212,16 +238,19 @@ export const login = async (req, res, next) => {
       user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
 
+      let emailFailed = false;
       try {
         await sendOTPEmail(user.email, otp);
       } catch (err) {
         console.error('Failed to send OTP email during login:', err.message);
+        console.warn(`[OTP Code Fallback for ${user.email}] is: ${otp}`);
+        emailFailed = true;
       }
 
       // Return a structured response instead of an error so the frontend can handle the OTP flow
       return new ApiResponse(
         200,
-        { requiresVerification: true, email: user.email },
+        { requiresVerification: true, email: user.email, emailFailed },
         'Your account is not verified yet. A verification code has been sent to your email.'
       ).send(res);
     }
@@ -335,6 +364,8 @@ export const forgotPassword = async (req, res, next) => {
       await sendResetPasswordEmail(user.email, resetUrl);
       new ApiResponse(200, null, 'Reset link sent to your email.').send(res);
     } catch (err) {
+      console.error(`Failed to send reset password email to ${user.email}:`, err.message);
+      console.warn(`[Password Reset URL Fallback for ${user.email}] is: ${resetUrl}`);
       user.resetPasswordToken = null;
       user.resetPasswordExpire = null;
       await user.save();
@@ -404,11 +435,13 @@ export const getProfile = async (req, res, next) => {
  */
 export const updateProfile = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, address } = req.body;
 
     const user = await User.findById(req.user.id);
 
     if (name) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
     
     if (email && email !== user.email) {
       // Check if email already registered
@@ -437,17 +470,23 @@ export const updateProfile = async (req, res, next) => {
  */
 export const claimFirstAdmin = async (req, res, next) => {
   try {
-    const adminExists = await User.findOne({ role: 'admin' });
-    if (adminExists) {
-      return next(new ApiError(400, 'An admin already exists.'));
-    }
-
     const user = await User.findById(req.user.id);
     if (!user) {
       return next(new ApiError(404, 'User not found'));
     }
 
+    const adminExists = await User.findOne({ role: 'admin' });
+    
+    if (adminExists) {
+      return next(new ApiError(400, 'An admin already exists.'));
+    }
+
+    if (user.email !== 'admin@giftcy.com') {
+      return next(new ApiError(400, 'Only admin@giftcy.com is permitted to claim the admin role.'));
+    }
+
     user.role = 'admin';
+    user.isVerified = true;
     await user.save();
 
     new ApiResponse(200, { user }, 'You are now an admin!').send(res);

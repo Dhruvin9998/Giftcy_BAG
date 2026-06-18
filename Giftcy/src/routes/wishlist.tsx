@@ -80,6 +80,7 @@ function WishlistPage() {
                   <img
                     src={product.image}
                     alt={product.name}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; }}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   {off > 0 && (

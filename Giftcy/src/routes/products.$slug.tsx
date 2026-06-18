@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { ChevronDown, ExternalLink, Heart, Minus, Plus, Share2, ShoppingBag, Truck } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Heart, Minus, Plus, Share2, ShoppingBag, Truck } from "lucide-react";
 import { getProduct as getStaticProduct, products, type Product } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/components/CartContext";
@@ -54,7 +54,37 @@ function PDP() {
   const [qty, setQty] = useState(1);
   const off = Math.round(((product.mrp - product.price) / product.mrp) * 100);
 
-  const [activeImage, setActiveImage] = useState(product.image);
+  const images = product.images && product.images.length > 0 ? product.images : [product.image];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollToSlide = (index: number) => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        left: scrollRef.current.clientWidth * index,
+        behavior: "smooth",
+      });
+      setActiveIndex(index);
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const index = Math.round(container.scrollLeft / container.clientWidth);
+    if (index !== activeIndex && index >= 0 && index < images.length) {
+      setActiveIndex(index);
+    }
+  };
+
+  const nextSlide = () => {
+    const nextIndex = (activeIndex + 1) % images.length;
+    scrollToSlide(nextIndex);
+  };
+
+  const prevSlide = () => {
+    const prevIndex = (activeIndex - 1 + images.length) % images.length;
+    scrollToSlide(prevIndex);
+  };
   const [pincode, setPincode] = useState("");
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "available" | "unavailable">("idle");
   const [pincodeSettings, setPincodeSettings] = useState<{ mode: string; pincodes: string } | null>(null);
@@ -81,7 +111,10 @@ function PDP() {
   }, []);
 
   useEffect(() => {
-    setActiveImage(product.image);
+    setActiveIndex(0);
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = 0;
+    }
     setPincode("");
     setPincodeStatus("idle");
     fetchReviews();
@@ -179,23 +212,93 @@ function PDP() {
 
       <section className="mx-auto max-w-7xl px-5 lg:px-10 grid lg:grid-cols-2 gap-10 lg:gap-16">
         {/* GALLERY */}
-        <div className="grid grid-cols-[80px_1fr] gap-4">
-          <div className="hidden lg:flex flex-col gap-3">
-            {(product.images && product.images.length > 0 ? product.images : [product.image]).map((src, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveImage(src)}
-                className={`aspect-square rounded-lg overflow-hidden border transition ${
-                  activeImage === src ? "border-gold shadow-sm ring-1 ring-gold" : "border-border hover:border-gold"
-                }`}
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[80px_1fr] gap-4 relative group/gallery">
+            {/* Desktop Thumbnails */}
+            <div className="hidden lg:flex flex-col gap-3">
+              {images.map((src, i) => (
+                <button
+                  key={i}
+                  onClick={() => scrollToSlide(i)}
+                  className={`aspect-square rounded-lg overflow-hidden border transition ${
+                    activeIndex === i ? "border-gold shadow-sm ring-1 ring-gold" : "border-border hover:border-gold"
+                  }`}
+                >
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+
+            {/* Main Carousel Wrapper */}
+            <div className="relative aspect-square rounded-2xl overflow-hidden bg-secondary">
+              {/* Scrollable container */}
+              <div
+                ref={scrollRef}
+                onScroll={handleScroll}
+                className="flex h-full w-full overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-none"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                <img src={src} alt="" className="h-full w-full object-cover" />
-              </button>
-            ))}
+                {images.map((src, i) => (
+                  <div key={i} className="h-full w-full shrink-0 snap-center">
+                    <img src={src} alt={`${product.name} - ${i + 1}`} className="h-full w-full object-cover select-none" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Prev / Next Arrows */}
+              {images.length > 1 && (
+                <>
+                  <button
+                    onClick={prevSlide}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/45 hover:text-white hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.55)]"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/45 hover:text-white hover:scale-115 active:scale-90 transition-all duration-200 cursor-pointer drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.55)]"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <div className="col-span-2 lg:col-span-1 aspect-square rounded-2xl overflow-hidden bg-secondary">
-            <img src={activeImage} alt={product.name} className="h-full w-full object-cover transition-all duration-300" />
-          </div>
+
+          {/* Dots Indicator under the main image */}
+          {images.length > 1 && (
+            <div className="flex justify-center gap-2 mt-1">
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => scrollToSlide(i)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    activeIndex === i ? "w-6 bg-gold" : "w-2 bg-border hover:bg-gold/45"
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Mobile Thumbnails */}
+          {images.length > 1 && (
+            <div className="flex lg:hidden gap-2 overflow-x-auto pb-2 scrollbar-none">
+              {images.map((src, i) => (
+                <button
+                  key={i}
+                  onClick={() => scrollToSlide(i)}
+                  className={`h-16 w-16 shrink-0 rounded-lg overflow-hidden border transition ${
+                    activeIndex === i ? "border-gold shadow-sm ring-1 ring-gold" : "border-border"
+                  }`}
+                >
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* DETAILS */}

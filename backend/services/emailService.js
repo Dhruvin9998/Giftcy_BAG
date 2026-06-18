@@ -10,6 +10,9 @@ const createTransporter = () => {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 };
 
@@ -33,7 +36,8 @@ const sendEmail = async (options) => {
   const transporter = createTransporter();
 
   const mailOptions = {
-    from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
+    from: options.from || `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
+    replyTo: options.replyTo,
     to: options.to,
     subject: options.subject,
     text: options.text,
@@ -211,5 +215,170 @@ export const sendOrderConfirmationEmail = async (email, order) => {
     subject,
     html,
     text: `Your order #${order._id} has been confirmed. Total is $${order.totalPrice.toFixed(2)}.`,
+  });
+};
+
+// Send Contact Form Notification email to admin
+export const sendContactFormEmail = async (contact) => {
+  const subject = `📩 New Customer Message: ${contact.subject}`;
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin: 0; padding: 0; background-color: #f8f5f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f5f0; padding: 40px 20px;">
+        <tr>
+          <td align="center">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 520px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.08);">
+              
+              <!-- Header -->
+              <tr>
+                <td style="background: linear-gradient(135deg, #d4a373 0%, #c8956b 100%); padding: 30px; text-align: center;">
+                  <h2 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: 1px;">New Customer Message</h2>
+                  <p style="margin: 6px 0 0; font-size: 11px; color: rgba(255,255,255,0.85); uppercase tracking-wider;">Customer Support Inquiry</p>
+                </td>
+              </tr>
+
+              <!-- Body -->
+              <tr>
+                <td style="padding: 30px; text-align: left;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 14px; line-height: 1.6; color: #2d2a26;">
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold; width: 80px;">From:</td>
+                      <td style="padding-bottom: 8px;">${contact.name}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Email:</td>
+                      <td style="padding-bottom: 8px;"><a href="mailto:${contact.email}" style="color: #d4a373; text-decoration: none;">${contact.email}</a></td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Phone:</td>
+                      <td style="padding-bottom: 8px;">${contact.phone || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 15px; font-weight: bold;">Subject:</td>
+                      <td style="padding-bottom: 15px; font-weight: bold; color: #c8956b;">${contact.subject}</td>
+                    </tr>
+                  </table>
+
+                  <!-- Message body block -->
+                  <div style="background-color: #fcfbf9; border-left: 4px solid #d4a373; padding: 16px; border-radius: 8px; font-size: 14px; color: #4a4540; margin-top: 10px; line-height: 1.6; white-space: pre-wrap;">
+${contact.message}
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #faf8f5; padding: 20px; border-top: 1px solid #ebe6df; text-align: center;">
+                  <p style="margin: 0; font-size: 11px; color: #b5afa8;">Submitted via Giftcy Gifting Concierge Contact form.</p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    from: `"${contact.name}" <${contact.email}>`,
+    replyTo: contact.email,
+    to: 'giftcybag1609@gmail.com',
+    subject,
+    html,
+    text: `New customer message from ${contact.name} (${contact.email}). Phone: ${contact.phone || 'N/A'}. Subject: ${contact.subject}. Message: ${contact.message}`,
+  });
+};
+
+// Send Bulk Inquiry email to admin
+export const sendBulkInquiryEmail = async (inquiry) => {
+  const subject = 'Bulk Inquiry';
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin: 0; padding: 0; background-color: #f8f5f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f5f0; padding: 40px 20px;">
+        <tr>
+          <td align="center">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 520px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.08);">
+              
+              <!-- Header -->
+              <tr>
+                <td style="background: linear-gradient(135deg, #d4a373 0%, #c8956b 100%); padding: 30px; text-align: center;">
+                  <h2 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: 1px;">New Bulk Inquiry</h2>
+                  <p style="margin: 6px 0 0; font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 1px;">Wholesale B2B Order Details</p>
+                </td>
+              </tr>
+
+              <!-- Body -->
+              <tr>
+                <td style="padding: 30px; text-align: left;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 14px; line-height: 1.6; color: #2d2a26;">
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold; width: 120px;">From:</td>
+                      <td style="padding-bottom: 8px;">${inquiry.name}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Email:</td>
+                      <td style="padding-bottom: 8px;"><a href="mailto:${inquiry.email}" style="color: #d4a373; text-decoration: none;">${inquiry.email}</a></td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Phone/Mobile:</td>
+                      <td style="padding-bottom: 8px;">${inquiry.mobile}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Company/Brand:</td>
+                      <td style="padding-bottom: 8px;">${inquiry.companyName || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Occasion:</td>
+                      <td style="padding-bottom: 8px;">${inquiry.inquiryType || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Quantity:</td>
+                      <td style="padding-bottom: 8px;">${inquiry.quantity}</td>
+                    </tr>
+                    ${inquiry.logoUrl ? `
+                    <tr>
+                      <td style="padding-bottom: 8px; font-weight: bold;">Artwork/Logo:</td>
+                      <td style="padding-bottom: 8px;"><a href="${inquiry.logoUrl}" target="_blank" style="color: #d4a373; text-decoration: underline;">View Artwork</a></td>
+                    </tr>
+                    ` : ''}
+                  </table>
+
+                  <!-- Message body block -->
+                  <div style="margin-top: 20px; background-color: #fcfbf9; border-left: 4px solid #d4a373; padding: 16px; border-radius: 8px; font-size: 14px; color: #4a4540; line-height: 1.6; white-space: pre-wrap;">
+                    <strong style="color: #2d2a26; display: block; margin-bottom: 8px;">Project Details:</strong>
+                    ${inquiry.message}
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #faf8f5; padding: 20px; border-top: 1px solid #ebe6df; text-align: center;">
+                  <p style="margin: 0; font-size: 11px; color: #b5afa8;">Submitted via Giftcy B2B Bulk Order inquiry form.</p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    from: `"${inquiry.name}" <${inquiry.email}>`,
+    replyTo: inquiry.email,
+    to: 'giftcybag1609@gmail.com',
+    subject,
+    html,
+    text: `New bulk inquiry from ${inquiry.name} (${inquiry.email}). Phone: ${inquiry.mobile}. Company: ${inquiry.companyName || 'N/A'}. Occasion: ${inquiry.inquiryType || 'N/A'}. Quantity: ${inquiry.quantity}. Artwork: ${inquiry.logoUrl || 'None'}. Message: ${inquiry.message}`,
   });
 };

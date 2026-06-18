@@ -66,6 +66,7 @@ export const Route = createFileRoute("/admin/dashboard")({
 
 type Tab =
   | "dashboard"
+  | "stock-mgr"
   | "analytics"
   | "all-products"
   | "add-product"
@@ -82,7 +83,8 @@ type Tab =
   | "menu-cms"
   | "media-library"
   | "bulk-inquiries"
-  | "custom-printing";
+  | "custom-printing"
+  | "customer-support";
 
 function AdminDashboardPage() {
   const { user, signOut, loading } = useAuth();
@@ -102,6 +104,45 @@ function AdminDashboardPage() {
   const isAdmin = ["admin", "super-admin"].includes(user.role);
   const isStaff = user.role === "staff";
   const hasAccess = isAdmin || isStaff;
+
+  const [unreadSupportCount, setUnreadSupportCount] = useState(0);
+  const [unreadBulkCount, setUnreadBulkCount] = useState(0);
+
+  const fetchUnreadSupportCount = async () => {
+    try {
+      const res = await apiClient.get("/admin/support-messages");
+      if (res?.success && Array.isArray(res.data)) {
+        const unread = res.data.filter((msg: any) => msg.status === "New").length;
+        setUnreadSupportCount(unread);
+      }
+    } catch (err) {
+      console.error("Error fetching support messages unread count:", err);
+    }
+  };
+
+  const fetchUnreadBulkCount = async () => {
+    try {
+      const res = await apiClient.get("/bulk-inquiries");
+      if (res?.success && Array.isArray(res.data)) {
+        const unread = res.data.filter((inq: any) => inq.status === "New").length;
+        setUnreadBulkCount(unread);
+      }
+    } catch (err) {
+      console.error("Error fetching bulk inquiries unread count:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user && isAdmin) {
+      fetchUnreadSupportCount();
+      fetchUnreadBulkCount();
+      const interval = setInterval(() => {
+        fetchUnreadSupportCount();
+        fetchUnreadBulkCount();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, isAdmin]);
 
   if (!hasAccess) {
     return (
@@ -127,6 +168,7 @@ function AdminDashboardPage() {
       title: "Overview",
       items: [
         { id: "dashboard" as Tab, label: "Dashboard", icon: LayoutDashboard, role: "both" },
+        { id: "stock-mgr" as Tab, label: "Stock Status", icon: PackageCheck, role: "both" },
         { id: "analytics" as Tab, label: "Analytics Reports", icon: TrendingUp, role: "admin" },
       ]
     },
@@ -153,6 +195,7 @@ function AdminDashboardPage() {
       items: [
         { id: "orders" as Tab, label: "Orders Timeline", icon: ClipboardList, role: "both" },
         { id: "customers-cms" as Tab, label: "Customer Accounts", icon: Users, role: "both" },
+        { id: "customer-support" as Tab, label: "Customer Support", icon: Mail, role: "admin" },
         { id: "bulk-inquiries" as Tab, label: "B2B Bulk Quotes", icon: FileText, role: "admin" },
         { id: "custom-printing" as Tab, label: "Custom Printing", icon: Palette, role: "admin" },
         { id: "reviews" as Tab, label: "Reviews & Ratings", icon: MessageSquare, role: "admin" },
@@ -187,8 +230,8 @@ function AdminDashboardPage() {
 
   const checkRoleAccess = (tabId: Tab) => {
     if (isStaff) {
-      // Staff has access to dashboard, orders, and customer-cms
-      return ["dashboard", "orders", "customers-cms"].includes(tabId);
+      // Staff has access to dashboard, orders, customer-cms, and stock-mgr
+      return ["dashboard", "orders", "customers-cms", "stock-mgr"].includes(tabId);
     }
     return true; // Admin has access to all channels
   };
@@ -211,6 +254,13 @@ function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              to="/"
+              target="_blank"
+              className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#EADFC9] bg-[#FDFBF7] text-xs text-foreground hover:bg-[#F8F3E5] hover:text-gold transition font-medium shadow-sm"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> View Live Site
+            </Link>
             <span className="text-xs text-muted-foreground hidden md:inline">Logged: {user.email}</span>
             <button onClick={signOut} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-white text-xs hover:border-gold hover:text-gold transition font-medium shadow-sm">
               <LogOut className="h-3.5 w-3.5" /> Sign out
@@ -253,6 +303,16 @@ function AdminDashboardPage() {
                     <div className="flex items-center gap-2.5">
                       <item.icon className={`h-4 w-4 ${isCurrent ? "text-gold" : "text-muted-foreground"}`} />
                       <span>{item.label}</span>
+                      {item.id === "customer-support" && unreadSupportCount > 0 && (
+                        <span className="ml-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center justify-center min-w-[16px] h-4">
+                          {unreadSupportCount}
+                        </span>
+                      )}
+                      {item.id === "bulk-inquiries" && unreadBulkCount > 0 && (
+                        <span className="ml-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center justify-center min-w-[16px] h-4">
+                          {unreadBulkCount}
+                        </span>
+                      )}
                     </div>
                     {!hasItemAccess && <Lock className="h-3 w-3 text-muted-foreground/30" />}
                   </button>
@@ -280,6 +340,7 @@ function AdminDashboardPage() {
           ) : (
             <>
               {tab === "dashboard" && <Dashboard setTab={setTab} />}
+              {tab === "stock-mgr" && <StockStatus />}
               {tab === "analytics" && <Analytics />}
               {tab === "all-products" && <ProductsAdmin handleEdit={handleEditProduct} handleDuplicate={handleDuplicateProduct} />}
               {tab === "add-product" && <ProductForm initial={editingProduct} onClose={() => { setEditingProduct(null); setTab("all-products"); }} />}
@@ -288,6 +349,9 @@ function AdminDashboardPage() {
               {tab === "banners-cms" && <BannersCMS />}
               {tab === "category-cms" && <CategoryCMS />}
               {tab === "customers-cms" && <CustomersCMS />}
+              {tab === "customer-support" && <CustomerSupportCMS onRefresh={fetchUnreadSupportCount} />}
+              {tab === "bulk-inquiries" && <BulkInquiriesAdmin onRefresh={fetchUnreadBulkCount} />}
+              {tab === "custom-printing" && <CustomPrintingAdmin />}
               {tab === "orders" && <OrdersAdmin />}
               {tab === "reviews" && <ReviewsAdmin />}
               {tab === "coupons" && <CouponsAdmin />}
@@ -451,16 +515,146 @@ function Dashboard({ setTab }: { setTab: (t: Tab) => void }) {
 /* ────────────────────────────────────────────────────────
    2. SALES ANALYTICS
    ──────────────────────────────────────────────────────── */
+function SalesTrendChart({ data = [] }: { data?: { month: string; value: number }[] }) {
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) {
+      return [
+        { month: "Jan", value: 0 },
+        { month: "Feb", value: 0 },
+        { month: "Mar", value: 0 },
+        { month: "Apr", value: 0 },
+        { month: "May", value: 0 },
+        { month: "Jun", value: 0 }
+      ];
+    }
+    return data;
+  }, [data]);
+
+  const maxVal = Math.max(...chartData.map(d => d.value));
+  const minVal = Math.min(...chartData.map(d => d.value));
+  const range = maxVal - minVal;
+  
+  // Calculate points
+  const points = chartData.map((d, i) => {
+    const x = 50 + i * 65;
+    const y = 130 - (range === 0 ? 40 : ((d.value - minVal) / range) * 80);
+    return { x, y, month: d.month, val: d.value };
+  });
+
+  const pathD = points.reduce((acc, p, i) => {
+    if (i === 0) return `M ${p.x} ${p.y}`;
+    return `${acc} L ${p.x} ${p.y}`;
+  }, "");
+
+  // Area path for gradient fill
+  const areaD = `${pathD} L ${points[points.length - 1].x} 140 L ${points[0].x} 140 Z`;
+
+  const [activePoint, setActivePoint] = useState<any>(null);
+
+  const avgValue = useMemo(() => {
+    return chartData.reduce((acc, d) => acc + d.value, 0) / chartData.length;
+  }, [chartData]);
+
+  const formatYLabel = (val: number) => {
+    if (val >= 1000000) return `₹${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}k`;
+    return `₹${val}`;
+  };
+
+  return (
+    <div className="relative pt-2">
+      <svg className="w-full h-40" viewBox="0 0 400 160">
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--gold)" stopOpacity="0.0" />
+          </linearGradient>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="var(--foreground)" stopOpacity="0.8" />
+          </linearGradient>
+        </defs>
+
+        {/* Gridlines */}
+        <line x1="40" y1="20" x2="380" y2="20" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3" />
+        <line x1="40" y1="60" x2="380" y2="60" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3" />
+        <line x1="40" y1="100" x2="380" y2="100" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3" />
+        <line x1="40" y1="140" x2="380" y2="140" stroke="var(--border)" strokeWidth="1" />
+
+        {/* Areas & Paths */}
+        <path d={areaD} fill="url(#chartGrad)" />
+        <path d={pathD} fill="none" stroke="url(#lineGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Interactive Dots */}
+        {points.map((p, idx) => (
+          <g key={idx} className="cursor-pointer" 
+             onMouseEnter={() => setActivePoint(p)}
+             onMouseLeave={() => setActivePoint(null)}
+          >
+            <circle cx={p.x} cy={p.y} r="10" fill="transparent" />
+            <circle 
+              cx={p.x} 
+              cy={p.y} 
+              r="4.5" 
+              fill={activePoint?.month === p.month ? "var(--foreground)" : "var(--gold)"} 
+              stroke="white" 
+              strokeWidth="1.5"
+              className="transition-all duration-200" 
+            />
+          </g>
+        ))}
+
+        {/* Axis labels */}
+        {points.map((p, idx) => (
+          <text key={idx} x={p.x} y="156" textAnchor="middle" fontSize="9" fill="var(--color-muted-foreground)">
+            {p.month}
+          </text>
+        ))}
+
+        {/* Y Axis labels */}
+        <text x="35" y="24" textAnchor="end" fontSize="8" fill="var(--color-muted-foreground)">{formatYLabel(maxVal)}</text>
+        <text x="35" y="64" textAnchor="end" fontSize="8" fill="var(--color-muted-foreground)">{formatYLabel(minVal + range * 0.5)}</text>
+        <text x="35" y="104" textAnchor="end" fontSize="8" fill="var(--color-muted-foreground)">{formatYLabel(minVal)}</text>
+      </svg>
+
+      {/* Floating tooltip details */}
+      <div className="absolute top-2 right-2 h-10 min-w-[120px] bg-foreground text-background text-[11px] px-3 py-1.5 rounded-xl shadow-soft flex flex-col justify-center transition-all duration-300">
+        {activePoint ? (
+          <>
+            <span className="text-muted-foreground/80 text-[8px] uppercase tracking-wider block font-semibold">{activePoint.month} Sales</span>
+            <span className="font-bold text-gold">₹{activePoint.val.toLocaleString()}</span>
+          </>
+        ) : (
+          <>
+            <span className="text-muted-foreground/80 text-[8px] uppercase tracking-wider block font-semibold">Average Revenue</span>
+            <span className="font-bold text-gold-soft">₹{Math.round(avgValue).toLocaleString()} / mo</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Analytics() {
   const [sales, setSales] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [salesTrend, setSalesTrend] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
         const res = await apiClient.get("/admin/dashboard");
-        if (res?.success && Array.isArray(res.data?.categorySales)) {
-          setSales(res.data.categorySales);
+        if (res?.success) {
+          if (Array.isArray(res.data?.categorySales)) {
+            setSales(res.data.categorySales);
+          }
+          if (res.data?.stats) {
+            setStats(res.data.stats);
+          }
+          if (Array.isArray(res.data?.salesTrend)) {
+            setSalesTrend(res.data.salesTrend);
+          }
         }
       } catch (err) {
         console.error(err);
@@ -476,43 +670,239 @@ function Analytics() {
     <div className="space-y-8 animate-in fade-in">
       <div>
         <h2 className="serif text-3xl font-semibold">Analytics & Sales Reports</h2>
-        <p className="text-xs text-muted-foreground mt-1">Breakdown of sales amounts, units sold, and top categories.</p>
+        <p className="text-xs text-muted-foreground mt-1">Real-time diagnostics of checkouts, category volumes, and monthly trends.</p>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-border p-6 rounded-2xl shadow-sm">
-          <h3 className="serif text-lg font-semibold mb-4">Category Revenue Breakdown</h3>
-          <div className="space-y-4">
+      {/* KPI Stats Cards Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Sales Card */}
+        <div className="bg-white border border-border p-5 rounded-2xl shadow-sm hover:shadow-soft transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.04] text-foreground group-hover:scale-110 transition-transform duration-300">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+          </div>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Total Revenue</p>
+          <h3 className="serif text-2xl font-bold text-foreground mt-2">₹{stats?.totalSales?.toLocaleString() || "0"}</h3>
+          <span className="text-[9px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mt-2 inline-block font-medium">Paid Volume</span>
+        </div>
+
+        {/* Total Orders Card */}
+        <div className="bg-white border border-border p-5 rounded-2xl shadow-sm hover:shadow-soft transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.04] text-foreground group-hover:scale-110 transition-transform duration-300">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+          </div>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Total Orders</p>
+          <h3 className="serif text-2xl font-bold text-foreground mt-2">{stats?.ordersCount || "0"}</h3>
+          <span className="text-[9px] text-gold bg-cream px-2 py-0.5 rounded-full mt-2 inline-block font-medium">All checkouts</span>
+        </div>
+
+        {/* Active Customers Card */}
+        <div className="bg-white border border-border p-5 rounded-2xl shadow-sm hover:shadow-soft transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.04] text-foreground group-hover:scale-110 transition-transform duration-300">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+          </div>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Active Customers</p>
+          <h3 className="serif text-2xl font-bold text-foreground mt-2">{stats?.customersCount || "0"}</h3>
+          <span className="text-[9px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full mt-2 inline-block font-medium">Registered</span>
+        </div>
+
+        {/* Inventory Status Card */}
+        <div className="bg-white border border-border p-5 rounded-2xl shadow-sm hover:shadow-soft transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.04] text-foreground group-hover:scale-110 transition-transform duration-300">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
+          </div>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Inventory Alerts</p>
+          <h3 className="serif text-2xl font-bold text-foreground mt-2">
+            {stats?.outOfStockCount || "0"} <span className="text-xs text-muted-foreground font-sans font-normal">out of stock</span>
+          </h3>
+          <span className={`text-[9px] px-2 py-0.5 rounded-full mt-2 inline-block font-medium ${stats?.lowStockCount > 0 ? "text-amber-600 bg-amber-50" : "text-emerald-600 bg-emerald-50"}`}>
+            {stats?.lowStockCount || "0"} low stock items
+          </span>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-12 gap-6">
+        {/* Category Revenue Breakdown (7 cols on lg) */}
+        <div className="lg:col-span-7 bg-white border border-border p-6 rounded-2xl shadow-sm hover:shadow-soft transition-all duration-300">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="serif text-lg font-semibold text-foreground">Category Revenue Breakdown</h3>
+            <span className="text-[10px] text-muted-foreground bg-cream px-2.5 py-1 rounded-full uppercase tracking-wider font-medium">Volume Ranked</span>
+          </div>
+
+          <div className="space-y-5">
             {sales.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-xs">No catalog sales recorded yet. Try marking an order as Delivered.</div>
+              <div className="text-center py-12 text-muted-foreground text-xs">No catalog sales recorded yet. Try marking an order as Delivered/Paid.</div>
             ) : (
-              sales.map((s) => (
-                <div key={s._id} className="space-y-2">
-                  <div className="flex justify-between text-xs font-medium">
-                    <span>{s.categoryName || "Uncategorized"}</span>
-                    <span className="font-semibold text-gold">₹{s.salesAmount.toLocaleString()}</span>
+              sales.map((s, idx) => {
+                const percentage = Math.min(100, (s.salesAmount / Math.max(1, stats?.totalSales || 50000)) * 100);
+                return (
+                  <div key={s._id} className="space-y-2 group">
+                    <div className="flex justify-between text-xs font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-cream border border-gold/20 flex items-center justify-center text-[9px] text-gold font-bold">{idx + 1}</span>
+                        <span className="text-foreground">{s.categoryName || "Uncategorized"}</span>
+                      </div>
+                      <span className="font-semibold text-gold">₹{s.salesAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="h-3 w-full bg-cream rounded-full overflow-hidden border border-border/20">
+                      <div 
+                        className="h-full bg-gradient-to-r from-gold to-foreground rounded-full transition-all duration-1000 animate-pulse" 
+                        style={{ width: `${percentage}%` }} 
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                      <span>{s.unitsSold} units sold</span>
+                      <span>₹{Math.round(s.salesAmount / (s.unitsSold || 1))} avg/unit</span>
+                    </div>
                   </div>
-                  <div className="h-2.5 w-full bg-cream rounded-full overflow-hidden">
-                    <div className="h-full bg-gold rounded-full" style={{ width: `${Math.min(100, (s.salesAmount / 50000) * 100)}%` }} />
-                  </div>
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>{s.unitsSold} units sold</span>
-                    <span>{Math.round(s.salesAmount / (s.unitsSold || 1))} avg/unit</span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
 
-        <div className="bg-white border border-border p-6 rounded-2xl shadow-sm flex flex-col justify-center text-center">
-          <div className="h-16 w-16 bg-cream border border-gold/20 rounded-full flex items-center justify-center text-gold mx-auto mb-4">
-            <TrendingUp className="h-6 w-6" />
+        {/* Interactive Sales Chart (5 cols on lg) */}
+        <div className="lg:col-span-5 bg-white border border-border p-6 rounded-2xl shadow-sm hover:shadow-soft transition-all duration-300 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="serif text-lg font-semibold text-foreground">Sales Trend</h3>
+              <span className="text-[9px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">Live</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+              Hover over the tracking points to inspect actual monthly sales totals compiled from successfully processed checkouts.
+            </p>
           </div>
-          <h4 className="serif text-xl font-medium mb-2">Automated Forecasts</h4>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-            Analytics reports compile automatically from paid checkout logs. B2B wholesale inquiries are excluded from these graphics to keep statistics clean.
-          </p>
+
+          <SalesTrendChart data={salesTrend} />
+
+          <div className="mt-6 pt-4 border-t border-border/60 text-[10px] text-muted-foreground flex items-start gap-2">
+            <svg className="text-gold shrink-0 mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+            <p>
+              B2B wholesale inquiries are dynamically excluded from these graphics to preserve direct customer conversion statistics.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────
+   2.5. STOCK & SOLD STATUS REPORT
+   ──────────────────────────────────────────────────────── */
+function StockStatus() {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/admin/stock-status");
+        if (res?.success && Array.isArray(res.data)) {
+          setData(res.data);
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load inventory stock reports");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const filtered = useMemo(() => {
+    return data.filter(item =>
+      (item.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (item.category || "").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [data, search]);
+
+  if (loading) return <div className="py-20 text-center text-muted-foreground animate-pulse font-serif">Compiling inventory stock and sales metrics…</div>;
+
+  return (
+    <div className="space-y-6 animate-in fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="serif text-3xl font-semibold">Stock Status</h2>
+          <p className="text-xs text-muted-foreground mt-1">Review live catalog inventories, total units sold, and restocking requirements.</p>
+        </div>
+        
+        {/* Search */}
+        <div className="relative max-w-sm w-full">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+          <input
+            className="w-full pl-10 pr-4 py-2.5 rounded-full border border-border bg-white text-xs placeholder:text-muted-foreground/60 focus:border-gold focus:ring-0 transition outline-none"
+            placeholder="Search items by name or category..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-cream/40 border-b border-border">
+                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Product Detail</th>
+                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Category</th>
+                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Stock</th>
+                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Sold Units</th>
+                <th className="p-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-10 text-center text-muted-foreground text-xs font-medium">
+                    No matching products found.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((item) => {
+                  const isOutOfStock = item.stock <= 0;
+                  const isLowStock = item.stock > 0 && item.stock <= 10;
+                  
+                  return (
+                    <tr key={item._id} className="border-t border-border/60 hover:bg-cream/10 transition">
+                      <td className="p-4 text-xs font-semibold">
+                        <div className="flex items-center gap-3">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-10 h-10 object-cover rounded-lg border border-border"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-cream rounded-lg border border-border flex items-center justify-center text-[9px] text-muted-foreground shrink-0">
+                              No Pic
+                            </div>
+                          )}
+                          <span className="text-foreground font-medium text-sm leading-tight block max-w-sm truncate">{item.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-xs text-muted-foreground capitalize">{item.category || "Uncategorized"}</td>
+                      <td className="p-4 text-xs font-bold">
+                        <span className={isOutOfStock ? "text-destructive" : isLowStock ? "text-amber-600" : "text-emerald-700"}>
+                          {item.stock} units
+                        </span>
+                      </td>
+                      <td className="p-4 text-xs font-mono font-bold text-gold">{item.soldUnits} sold</td>
+                      <td className="p-4 text-xs text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                          isOutOfStock ? "bg-red-50 text-red-700 border-red-100" :
+                          isLowStock ? "bg-amber-50 text-amber-700 border-amber-100" :
+                          "bg-emerald-50 text-emerald-700 border-emerald-100"
+                        }`}>
+                          {isOutOfStock ? "Out of Stock" : isLowStock ? "Low Stock" : "In Stock"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -717,6 +1107,7 @@ function ProductsAdmin({ handleEdit, handleDuplicate }: { handleEdit: (prod: any
               </th>
               <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Product</th>
               <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">SKU / Code</th>
+              <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Priority</th>
               <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Price structure</th>
               <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Stock</th>
               <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Visibility</th>
@@ -725,7 +1116,7 @@ function ProductsAdmin({ handleEdit, handleDuplicate }: { handleEdit: (prod: any
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (
-              <tr><td colSpan={7} className="p-8 text-center text-muted-foreground text-xs">No products matched search criteria.</td></tr>
+              <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-xs">No products matched search criteria.</td></tr>
             ) : (
               filteredRows.map((r) => {
                 const isLowStock = r.stock <= (r.lowStockAlert ?? 10);
@@ -755,6 +1146,15 @@ function ProductsAdmin({ handleEdit, handleDuplicate }: { handleEdit: (prod: any
                       </div>
                     </td>
                     <td className="p-4 text-xs font-mono">{r.sku || "GFT-MOCK"}</td>
+                    <td className="p-4 text-xs">
+                      {r.priority !== undefined && r.priority !== 99999 ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FDFBF7] text-gold border border-gold/40 font-mono">
+                          {r.priority}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/60 italic text-[10px]">—</span>
+                      )}
+                    </td>
                     <td className="p-4 text-xs">
                       <div className="font-semibold">Sale: ₹{r.price}</div>
                       {Number(r.compareAtPrice) > Number(r.price) && <div className="text-[9px] text-muted-foreground line-through">MRP: ₹{r.compareAtPrice}</div>}
@@ -813,6 +1213,20 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
   const [mainImage, setMainImage] = useState(initial?.images?.[0] || "");
   const [otherImages, setOtherImages] = useState(initial?.images?.slice(1).join(", ") || "");
   const [video, setVideo] = useState(initial?.video || "");
+  const [isBestSeller, setIsBestSeller] = useState(initial?.isBestSeller || false);
+  const [isNewArrival, setIsNewArrival] = useState(initial?.isNewArrival || false);
+  const [priority, setPriority] = useState<number | "">(
+    initial?.priority !== undefined && initial.priority !== 99999 ? initial.priority : ""
+  );
+
+  const otherImagesArray = useMemo(() => {
+    return otherImages.split(",").map((s: string) => s.trim()).filter(Boolean);
+  }, [otherImages]);
+
+  const handleRemoveAdditionalImage = (urlToRemove: string) => {
+    const updated = otherImagesArray.filter(url => url !== urlToRemove);
+    setOtherImages(updated.join(", "));
+  };
 
   const [colors, setColors] = useState<string[]>(initial?.colors || ["Ivory", "Gold", "Blush"]);
   const [sizes, setSizes] = useState<string[]>(initial?.sizes || ["Small", "Medium", "Large"]);
@@ -862,7 +1276,7 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
     if (!price) return toast.error("Product price is required");
     setSaving(true);
 
-    const imageArray = [mainImage, ...otherImages.split(",").map(i => i.trim()).filter(Boolean)].filter(Boolean);
+    const imageArray = [mainImage, ...otherImages.split(",").map((i: string) => i.trim()).filter(Boolean)].filter(Boolean);
     if (imageArray.length === 0) imageArray.push("https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800");
 
     const payload = {
@@ -884,6 +1298,9 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
       images: imageArray,
       video,
       specifications: { fabric, dimensions, weight, handle, care },
+      isBestSeller,
+      isNewArrival,
+      priority: priority === "" || Number(priority) === 0 ? 99999 : Number(priority),
     };
 
     try {
@@ -949,10 +1366,33 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
                 {["Wedding", "Birthday", "Festive", "Corporate", "Combo Packs"].map(o => <option key={o}>{o}</option>)}
               </select>
             </Field>
+            <Field label="Product Priority Weight (lower value shows first, e.g. 1 is first, 2 is second)">
+              <input
+                type="number"
+                className="i"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="Leave empty for default (shows last)"
+              />
+            </Field>
             <Field label="Short Summary Description" full><input className="i" value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} placeholder="A brief summary for category grids..." /></Field>
             <Field label="Full Description / Material details" full>
               <textarea rows={4} className="i rounded-xl py-3" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detailed descriptive paragraphs..." />
             </Field>
+            <div className="col-span-2 grid grid-cols-2 gap-4 mt-2">
+              <Field label="Highlight as Bestseller">
+                <label className="flex items-center gap-2 h-11 border border-border rounded-full px-4 bg-background select-none cursor-pointer">
+                  <input type="checkbox" checked={isBestSeller} onChange={(e) => setIsBestSeller(e.target.checked)} />
+                  <span className="text-xs font-semibold">Bestseller (Show BESTSELLER badge)</span>
+                </label>
+              </Field>
+              <Field label="Highlight as New Arrival">
+                <label className="flex items-center gap-2 h-11 border border-border rounded-full px-4 bg-background select-none cursor-pointer">
+                  <input type="checkbox" checked={isNewArrival} onChange={(e) => setIsNewArrival(e.target.checked)} />
+                  <span className="text-xs font-semibold">New Arrival (Show NEW badge)</span>
+                </label>
+              </Field>
+            </div>
           </div>
         )}
 
@@ -1047,30 +1487,89 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
 
             <div className="gold-divider" />
 
-            <div className="space-y-4">
-              <Field label="Main Product Image URL" full>
-                <div className="flex gap-2 items-center">
-                  <input className="i flex-1" value={mainImage} onChange={(e) => setMainImage(e.target.value)} placeholder="Paste Unsplash / static media URL..." />
-                  <ImageUploader onUploadSuccess={(url) => setMainImage(url)} buttonText="Upload Main" />
+            <div className="space-y-6">
+              {/* Main Product Image */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 block">Main Product Image</label>
+                {mainImage ? (
+                  <div className="relative w-36 h-36 rounded-2xl overflow-hidden border border-[#EADFC9] shadow-sm group">
+                    <img src={mainImage} alt="Main preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setMainImage("")}
+                        className="p-2.5 bg-red-600 text-white rounded-full hover:scale-110 transition shadow cursor-pointer"
+                        title="Delete main image"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-36 h-36 rounded-2xl border-2 border-dashed border-[#EADFC9] flex flex-col items-center justify-center bg-[#FDFBF7]/40 text-muted-foreground/60 p-4 text-center">
+                    <ImageIcon className="h-6 w-6 text-muted-foreground/45 mb-1.5" />
+                    <span className="text-[10px] font-semibold mb-2">No main image</span>
+                    <ImageUploader onUploadSuccess={(url) => setMainImage(url)} buttonText="Upload Main" />
+                  </div>
+                )}
+              </div>
+
+              {/* Additional Product Images */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 block">Additional Product Images</label>
+                <div className="flex flex-wrap gap-4 items-start">
+                  {otherImagesArray.map((url, idx) => (
+                    <div key={idx} className="relative w-28 h-28 rounded-xl overflow-hidden border border-[#EADFC9] shadow-sm group shrink-0">
+                      <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdditionalImage(url)}
+                          className="p-2 bg-red-600 text-white rounded-full hover:scale-110 transition shadow cursor-pointer"
+                          title="Delete additional image"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Upload Box */}
+                  <div className="w-28 h-28 rounded-xl border-2 border-dashed border-[#EADFC9] flex flex-col items-center justify-center bg-[#FDFBF7]/40 text-muted-foreground/60 shrink-0">
+                    <Plus className="h-5 w-5 text-muted-foreground/45 mb-1" />
+                    <ImageUploader
+                      onUploadSuccess={(url) => setOtherImages(prev => prev ? `${prev}, ${url}` : url)}
+                      buttonText="Add Image"
+                    />
+                  </div>
                 </div>
-              </Field>
-              <Field label="Additional Image URLs (Comma-separated list)" full>
-                <div className="flex gap-2 items-center">
-                  <input className="i flex-1" value={otherImages} onChange={(e) => setOtherImages(e.target.value)} placeholder="URL1, URL2, URL3..." />
-                  <ImageUploader
-                    onUploadSuccess={(url) => {
-                      setOtherImages((prev) => (prev ? `${prev}, ${url}` : url));
-                    }}
-                    buttonText="Upload Additional"
-                  />
-                </div>
-              </Field>
-              <Field label="Presentation Video URL (MP4 / WebM)" full>
-                <div className="flex gap-2 items-center">
-                  <input className="i flex-1" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="URL to mp4 file..." />
-                  <ImageUploader onUploadSuccess={(url) => setVideo(url)} accept="video/*" buttonText="Upload Video" />
-                </div>
-              </Field>
+              </div>
+
+              {/* Presentation Video */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 block">Presentation Video (MP4 / WebM)</label>
+                {video ? (
+                  <div className="relative w-64 rounded-xl overflow-hidden border border-[#EADFC9] shadow-sm group">
+                    <video src={video} className="w-full object-cover h-36" controls />
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => setVideo("")}
+                        className="p-2 bg-red-600 text-white rounded-full hover:scale-110 transition shadow cursor-pointer"
+                        title="Delete video"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-64 h-32 rounded-xl border-2 border-dashed border-[#EADFC9] flex flex-col items-center justify-center bg-[#FDFBF7]/40 text-muted-foreground/60 p-4">
+                    <Video className="h-6 w-6 text-muted-foreground/45 mb-1.5" />
+                    <span className="text-[10px] font-semibold mb-2">No video uploaded</span>
+                    <ImageUploader onUploadSuccess={(url) => setVideo(url)} accept="video/*" buttonText="Upload Video" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1102,6 +1601,70 @@ function HomepageCMS() {
 
   const [newsletterTitle, setNewsletterTitle] = useState("");
   const [newsletterDesc, setNewsletterDesc] = useState("");
+
+  const [marqueeTexts, setMarqueeTexts] = useState("");
+  const [weddingTitle, setWeddingTitle] = useState("");
+  const [weddingDesc, setWeddingDesc] = useState("");
+  const [weddingImage, setWeddingImage] = useState("");
+  const [weddingCtaText, setWeddingCtaText] = useState("");
+  const [festivalsList, setFestivalsList] = useState<any[]>([
+    { name: "Diwali", subtitle: "Festival of Lights", img: "", desc: "Rich silk & brocade bags for sweets, dry fruits, and festive hampers." },
+    { name: "Eid", subtitle: "Celebrate Togetherness", img: "", desc: "Elegant pouches for Eidi gifts and celebration essentials." },
+    { name: "Christmas", subtitle: "Season of Giving", img: "", desc: "Velvet bags and totes for Secret Santa and holiday hampers." }
+  ]);
+
+  // Fabric/Quality Section
+  const [fabricBadge, setFabricBadge] = useState("");
+  const [fabricTitle, setFabricTitle] = useState("");
+  const [fabricDesc, setFabricDesc] = useState("");
+  const [fabricImage, setFabricImage] = useState("");
+  const [fabricFeatures, setFabricFeatures] = useState<any[]>([
+    { title: "Sustainable", desc: "100% reusable, plastic-free packaging." },
+    { title: "Hand-Finished", desc: "Detailed stitching, premium hardware." },
+    { title: "Pan-India", desc: "Fast shipping with free returns ₹999+." },
+    { title: "Loved by 50k+", desc: "Trusted across weddings & gifting." }
+  ]);
+
+  // Testimonials Section
+  const [testimonialsBadge, setTestimonialsBadge] = useState("");
+  const [testimonialsTitle, setTestimonialsTitle] = useState("");
+  const [testimonialsList, setTestimonialsList] = useState<any[]>([
+    { quote: "Absolutely premium quality — guests loved them at our wedding.", author: "Aditi & Rohan", role: "Mumbai", stars: 5 },
+    { quote: "Beautifully crafted, eco-friendly, and so elegant. A perfect gift.", author: "Priya Sharma", role: "Delhi", stars: 5 },
+    { quote: "Our corporate hampers felt truly luxurious thanks to Giftcy.", author: "Karthik R.", role: "Bengaluru", stars: 5 }
+  ]);
+
+  // Instagram Section
+  const [instagramBadge, setInstagramBadge] = useState("");
+  const [instagramTitle, setInstagramTitle] = useState("");
+  const [instagramDesc, setInstagramDesc] = useState("");
+  const [instagramBtnText, setInstagramBtnText] = useState("");
+  const [instagramBtnUrl, setInstagramBtnUrl] = useState("");
+  const [instagramImages, setInstagramImages] = useState<any[]>([
+    { url: "", likes: 342 },
+    { url: "", likes: 289 },
+    { url: "", likes: 421 },
+    { url: "", likes: 178 },
+    { url: "", likes: 563 },
+    { url: "", likes: 397 }
+  ]);
+
+  // Trust Badges
+  const [trustBadgesList, setTrustBadgesList] = useState<any[]>([
+    { label: "50,000+", desc: "Bags Delivered", icon: "Package" },
+    { label: "100%", desc: "Reusable & Eco", icon: "Leaf" },
+    { label: "Pan-India", desc: "Free Shipping ₹999+", icon: "Truck" },
+    { label: "Secure", desc: "Payment Gateway", icon: "Lock" },
+    { label: "Easy", desc: "Returns & Exchange", icon: "RotateCcw" },
+    { label: "Quality", desc: "Guaranteed", icon: "Shield" }
+  ]);
+
+  // B2B CTA Section
+  const [ctaSubtitle, setCtaSubtitle] = useState("");
+  const [ctaTitle, setCtaTitle] = useState("");
+  const [ctaDesc, setCtaDesc] = useState("");
+  const [ctaBtnText, setCtaBtnText] = useState("");
+  const [ctaBtnUrl, setCtaBtnUrl] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -1145,6 +1708,61 @@ function HomepageCMS() {
           setNewsletterTitle("Get 10% off your first order");
           setNewsletterDesc("Subscribe to our newsletter for early access to new collections, festive drops, and exclusive offers.");
         }
+        if (data.homepage_marquee) {
+          setMarqueeTexts(Array.isArray(data.homepage_marquee) ? data.homepage_marquee.join(", ") : "");
+        } else {
+          setMarqueeTexts("Free Shipping ₹999+, Reusable Fabric, Made in India, Bulk Pricing, Custom Printing");
+        }
+        if (data.homepage_wedding_promo) {
+          setWeddingTitle(data.homepage_wedding_promo.title || "");
+          setWeddingDesc(data.homepage_wedding_promo.description || "");
+          setWeddingImage(data.homepage_wedding_promo.image || "");
+          setWeddingCtaText(data.homepage_wedding_promo.ctaText || "");
+        } else {
+          setWeddingTitle("Perfect for Your Big Day");
+          setWeddingDesc("From shagun envelopes to trousseau packaging, our wedding collection transforms every moment of your celebration into a luxurious experience. Custom monograms, matching colours, and bulk pricing available.");
+          setWeddingImage("");
+          setWeddingCtaText("Explore Wedding Collection");
+        }
+        if (data.homepage_festivals && Array.isArray(data.homepage_festivals)) {
+          setFestivalsList(data.homepage_festivals);
+        }
+        if (data.homepage_fabric) {
+          setFabricBadge(data.homepage_fabric.badge || "");
+          setFabricTitle(data.homepage_fabric.title || "");
+          setFabricDesc(data.homepage_fabric.description || "");
+          setFabricImage(data.homepage_fabric.image || "");
+          if (Array.isArray(data.homepage_fabric.features)) {
+            setFabricFeatures(data.homepage_fabric.features);
+          }
+        }
+        if (data.homepage_testimonials) {
+          setTestimonialsBadge(data.homepage_testimonials.badge || "");
+          setTestimonialsTitle(data.homepage_testimonials.title || "");
+          if (Array.isArray(data.homepage_testimonials.list)) {
+            setTestimonialsList(data.homepage_testimonials.list);
+          }
+        }
+        if (data.homepage_instagram) {
+          setInstagramBadge(data.homepage_instagram.badge || "");
+          setInstagramTitle(data.homepage_instagram.title || "");
+          setInstagramDesc(data.homepage_instagram.description || "");
+          setInstagramBtnText(data.homepage_instagram.buttonText || "");
+          setInstagramBtnUrl(data.homepage_instagram.buttonUrl || "");
+          if (Array.isArray(data.homepage_instagram.images)) {
+            setInstagramImages(data.homepage_instagram.images);
+          }
+        }
+        if (data.homepage_badges && Array.isArray(data.homepage_badges)) {
+          setTrustBadgesList(data.homepage_badges);
+        }
+        if (data.homepage_cta) {
+          setCtaSubtitle(data.homepage_cta.subtitle || "");
+          setCtaTitle(data.homepage_cta.title || "");
+          setCtaDesc(data.homepage_cta.description || "");
+          setCtaBtnText(data.homepage_cta.buttonText || "");
+          setCtaBtnUrl(data.homepage_cta.buttonUrl || "");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -1173,6 +1791,11 @@ function HomepageCMS() {
   const save = async () => {
     setSaving(true);
     try {
+      const parsedMarquee = marqueeTexts
+        .split(",")
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+
       await Promise.all([
         apiClient.put("/settings/homepage_layout", { value: sections }),
         apiClient.put("/settings/homepage_hero", {
@@ -1180,6 +1803,37 @@ function HomepageCMS() {
         }),
         apiClient.put("/settings/homepage_newsletter", {
           value: { title: newsletterTitle, description: newsletterDesc }
+        }),
+        apiClient.put("/settings/homepage_marquee", {
+          value: parsedMarquee
+        }),
+        apiClient.put("/settings/homepage_wedding_promo", {
+          value: { title: weddingTitle, description: weddingDesc, image: weddingImage, ctaText: weddingCtaText }
+        }),
+        apiClient.put("/settings/homepage_festivals", {
+          value: festivalsList
+        }),
+        apiClient.put("/settings/homepage_fabric", {
+          value: { badge: fabricBadge, title: fabricTitle, description: fabricDesc, image: fabricImage, features: fabricFeatures }
+        }),
+        apiClient.put("/settings/homepage_testimonials", {
+          value: { badge: testimonialsBadge, title: testimonialsTitle, list: testimonialsList }
+        }),
+        apiClient.put("/settings/homepage_instagram", {
+          value: {
+            badge: instagramBadge,
+            title: instagramTitle,
+            description: instagramDesc,
+            buttonText: instagramBtnText,
+            buttonUrl: instagramBtnUrl,
+            images: instagramImages
+          }
+        }),
+        apiClient.put("/settings/homepage_badges", {
+          value: trustBadgesList
+        }),
+        apiClient.put("/settings/homepage_cta", {
+          value: { subtitle: ctaSubtitle, title: ctaTitle, description: ctaDesc, buttonText: ctaBtnText, buttonUrl: ctaBtnUrl }
         })
       ]);
       toast.success("Homepage CMS layout updated successfully!");
@@ -1238,7 +1892,346 @@ function HomepageCMS() {
               <Field label="Hero Badge Banner text"><input className="i" value={heroBadge} onChange={(e) => setHeroBadge(e.target.value)} placeholder="e.g. Festive Edit '26" /></Field>
               <Field label="Hero Headline Title"><input className="i" value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} placeholder="e.g. Make Every Gift Premium" /></Field>
               <Field label="Hero Subtitle Description"><textarea rows={3} className="i rounded-xl py-3" value={heroDesc} onChange={(e) => setHeroDesc(e.target.value)} /></Field>
-              <Field label="Hero Banner Image URL"><input className="i" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} placeholder="Paste Unsplash / uploads image URL..." /></Field>
+              <Field label="Hero Banner Image URL">
+                <div className="flex gap-2 items-center">
+                  <input className="i flex-1" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} placeholder="Paste Unsplash / uploads image URL..." />
+                  <ImageUploader onUploadSuccess={(url) => setHeroImage(url)} />
+                </div>
+              </Field>
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">Marquee Text Settings</h3>
+            <div className="space-y-4">
+              <Field label="Promo Bar Texts (comma-separated)">
+                <input
+                  className="i"
+                  value={marqueeTexts}
+                  onChange={(e) => setMarqueeTexts(e.target.value)}
+                  placeholder="e.g. Free Shipping ₹999+, Reusable Fabric, Made in India"
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">Wedding / Promotion Section Settings</h3>
+            <div className="space-y-4">
+              <Field label="Promo Title">
+                <input
+                  className="i"
+                  value={weddingTitle}
+                  onChange={(e) => setWeddingTitle(e.target.value)}
+                  placeholder="e.g. Perfect for Your Big Day"
+                />
+              </Field>
+              <Field label="Promo Description">
+                <textarea
+                  rows={3}
+                  className="i rounded-xl py-3"
+                  value={weddingDesc}
+                  onChange={(e) => setWeddingDesc(e.target.value)}
+                  placeholder="Promo description body text..."
+                />
+              </Field>
+              <Field label="Promo Image URL">
+                <div className="flex gap-2 items-center">
+                  <input
+                    className="i flex-1"
+                    value={weddingImage}
+                    onChange={(e) => setWeddingImage(e.target.value)}
+                    placeholder="Paste image URL (leave empty for default)"
+                  />
+                  <ImageUploader onUploadSuccess={(url) => setWeddingImage(url)} />
+                </div>
+              </Field>
+              <Field label="CTA Button Text">
+                <input
+                  className="i"
+                  value={weddingCtaText}
+                  onChange={(e) => setWeddingCtaText(e.target.value)}
+                  placeholder="e.g. Explore Wedding Collection"
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">Seasonal Collections Settings</h3>
+            <div className="space-y-6">
+              {festivalsList.map((fest, idx) => (
+                <div key={idx} className="p-4 border border-border/80 rounded-2xl bg-cream/10 space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gold">Card #{idx + 1} - {fest.name || `Card ${idx + 1}`}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Collection Name">
+                      <input 
+                        className="i" 
+                        value={fest.name || ""} 
+                        onChange={(e) => {
+                          const copy = [...festivalsList];
+                          copy[idx] = { ...copy[idx], name: e.target.value };
+                          setFestivalsList(copy);
+                        }} 
+                      />
+                    </Field>
+                    <Field label="Subtitle Tagline">
+                      <input 
+                        className="i" 
+                        value={fest.subtitle || ""} 
+                        onChange={(e) => {
+                          const copy = [...festivalsList];
+                          copy[idx] = { ...copy[idx], subtitle: e.target.value };
+                          setFestivalsList(copy);
+                        }} 
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Description Text">
+                    <input 
+                      className="i" 
+                      value={fest.desc || ""} 
+                      onChange={(e) => {
+                        const copy = [...festivalsList];
+                        copy[idx] = { ...copy[idx], desc: e.target.value };
+                        setFestivalsList(copy);
+                      }} 
+                    />
+                  </Field>
+                  <Field label="Image URL">
+                    <div className="flex gap-2 items-center">
+                      <input 
+                        className="i flex-1" 
+                        value={fest.img || ""} 
+                        onChange={(e) => {
+                          const copy = [...festivalsList];
+                          copy[idx] = { ...copy[idx], img: e.target.value };
+                          setFestivalsList(copy);
+                        }} 
+                        placeholder="Paste image URL or upload" 
+                      />
+                      <ImageUploader 
+                        onUploadSuccess={(url) => {
+                          const copy = [...festivalsList];
+                          copy[idx] = { ...copy[idx], img: url };
+                          setFestivalsList(copy);
+                        }} 
+                      />
+                    </div>
+                  </Field>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          {/* Fabric Quality Callout Settings */}
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">Fabric Quality Callout Settings</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Section Overline Tag"><input className="i" value={fabricBadge} onChange={(e) => setFabricBadge(e.target.value)} placeholder="e.g. The Giftcy Promise" /></Field>
+                <Field label="Headline Title"><input className="i" value={fabricTitle} onChange={(e) => setFabricTitle(e.target.value)} placeholder="e.g. Crafted from the finest fabrics." /></Field>
+              </div>
+              <Field label="Description Text">
+                <textarea rows={3} className="i rounded-xl py-3" value={fabricDesc} onChange={(e) => setFabricDesc(e.target.value)} placeholder="Paragraph text explaining fabric..." />
+              </Field>
+              <Field label="Illustration Image URL">
+                <div className="flex gap-2 items-center">
+                  <input className="i flex-1" value={fabricImage} onChange={(e) => setFabricImage(e.target.value)} placeholder="Paste image URL or upload" />
+                  <ImageUploader onUploadSuccess={(url) => setFabricImage(url)} />
+                </div>
+              </Field>
+              
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gold mt-4">Features (4 items)</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                {fabricFeatures.map((feat, idx) => (
+                  <div key={idx} className="p-3.5 border border-border/70 rounded-xl bg-cream/5 space-y-2">
+                    <p className="text-[10px] font-semibold text-gold">Feature #{idx + 1}</p>
+                    <Field label="Title">
+                      <input className="i" value={feat.title || ""} onChange={(e) => {
+                        const copy = [...fabricFeatures];
+                        copy[idx] = { ...copy[idx], title: e.target.value };
+                        setFabricFeatures(copy);
+                      }} />
+                    </Field>
+                    <Field label="Description">
+                      <input className="i" value={feat.desc || ""} onChange={(e) => {
+                        const copy = [...fabricFeatures];
+                        copy[idx] = { ...copy[idx], desc: e.target.value };
+                        setFabricFeatures(copy);
+                      }} />
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          {/* Testimonials Settings */}
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">Testimonials Settings</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Section Overline Tag"><input className="i" value={testimonialsBadge} onChange={(e) => setTestimonialsBadge(e.target.value)} placeholder="e.g. Loved by gifters" /></Field>
+                <Field label="Headline Title"><input className="i" value={testimonialsTitle} onChange={(e) => setTestimonialsTitle(e.target.value)} placeholder="e.g. Kind words, kept close." /></Field>
+              </div>
+              
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gold mt-4">Reviews (3 items)</p>
+              <div className="space-y-4">
+                {testimonialsList.map((test, idx) => (
+                  <div key={idx} className="p-4 border border-border/70 rounded-2xl bg-cream/5 space-y-3">
+                    <p className="text-[10px] font-semibold text-gold">Review #{idx + 1}</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field label="Author Name"><input className="i" value={test.author || ""} onChange={(e) => {
+                        const copy = [...testimonialsList];
+                        copy[idx] = { ...copy[idx], author: e.target.value };
+                        setTestimonialsList(copy);
+                      }} /></Field>
+                      <Field label="Author Location/Role"><input className="i" value={test.role || ""} onChange={(e) => {
+                        const copy = [...testimonialsList];
+                        copy[idx] = { ...copy[idx], role: e.target.value };
+                        setTestimonialsList(copy);
+                      }} /></Field>
+                      <Field label="Star Rating (1-5)">
+                        <select className="i" value={test.stars || 5} onChange={(e) => {
+                          const copy = [...testimonialsList];
+                          copy[idx] = { ...copy[idx], stars: parseInt(e.target.value, 10) || 5 };
+                          setTestimonialsList(copy);
+                        }}>
+                          {[5, 4, 3, 2, 1].map(num => <option key={num} value={num}>{num} Stars</option>)}
+                        </select>
+                      </Field>
+                    </div>
+                    <Field label="Review Quote Description">
+                      <textarea rows={2} className="i rounded-xl py-2" value={test.quote || ""} onChange={(e) => {
+                        const copy = [...testimonialsList];
+                        copy[idx] = { ...copy[idx], quote: e.target.value };
+                        setTestimonialsList(copy);
+                      }} />
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          {/* Instagram Settings */}
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">Instagram Section Settings</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Section Overline Tag"><input className="i" value={instagramBadge} onChange={(e) => setInstagramBadge(e.target.value)} placeholder="e.g. Follow Us" /></Field>
+                <Field label="Headline handle"><input className="i" value={instagramTitle} onChange={(e) => setInstagramTitle(e.target.value)} placeholder="e.g. @giftcy.in" /></Field>
+                <Field label="CTA Description text"><input className="i" value={instagramDesc} onChange={(e) => setInstagramDesc(e.target.value)} placeholder="e.g. Tag us in your gifting moments..." /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Instagram CTA Button Text"><input className="i" value={instagramBtnText} onChange={(e) => setInstagramBtnText(e.target.value)} placeholder="e.g. Follow on Instagram" /></Field>
+                <Field label="Instagram Profile URL link"><input className="i" value={instagramBtnUrl} onChange={(e) => setInstagramBtnUrl(e.target.value)} placeholder="e.g. https://instagram.com/giftcy.in" /></Field>
+              </div>
+              
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gold mt-4">Gallery Grid Images (6 items)</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                {instagramImages.map((img, idx) => (
+                  <div key={idx} className="p-3 border border-border/70 rounded-xl bg-cream/5 space-y-2">
+                    <p className="text-[10px] font-semibold text-gold">Image #{idx + 1}</p>
+                    <Field label="Image URL">
+                      <div className="flex gap-2 items-center">
+                        <input className="i flex-1 text-xs" value={img.url || ""} onChange={(e) => {
+                          const copy = [...instagramImages];
+                          copy[idx] = { ...copy[idx], url: e.target.value };
+                          setInstagramImages(copy);
+                        }} placeholder="URL or upload" />
+                        <ImageUploader onUploadSuccess={(url) => {
+                          const copy = [...instagramImages];
+                          copy[idx] = { ...copy[idx], url: url };
+                          setInstagramImages(copy);
+                        }} />
+                      </div>
+                    </Field>
+                    <Field label="Like Count Display">
+                      <input type="number" className="i" value={img.likes || 0} onChange={(e) => {
+                        const copy = [...instagramImages];
+                        copy[idx] = { ...copy[idx], likes: parseInt(e.target.value, 10) || 0 };
+                        setInstagramImages(copy);
+                      }} />
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          {/* Trust Badges Settings */}
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">Trust Badges Settings</h3>
+            <div className="space-y-4">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gold">Badges list (6 items)</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                {trustBadgesList.map((badge, idx) => (
+                  <div key={idx} className="p-3.5 border border-border/70 rounded-xl bg-cream/5 space-y-2">
+                    <p className="text-[10px] font-semibold text-gold">Badge #{idx + 1}</p>
+                    <Field label="Badge Label Header">
+                      <input className="i" value={badge.label || ""} onChange={(e) => {
+                        const copy = [...trustBadgesList];
+                        copy[idx] = { ...copy[idx], label: e.target.value };
+                        setTrustBadgesList(copy);
+                      }} />
+                    </Field>
+                    <Field label="Badge Description Detail">
+                      <input className="i" value={badge.desc || ""} onChange={(e) => {
+                        const copy = [...trustBadgesList];
+                        copy[idx] = { ...copy[idx], desc: e.target.value };
+                        setTrustBadgesList(copy);
+                      }} />
+                    </Field>
+                    <Field label="Lucide Icon Name selection">
+                      <select className="i" value={badge.icon || "Package"} onChange={(e) => {
+                        const copy = [...trustBadgesList];
+                        copy[idx] = { ...copy[idx], icon: e.target.value };
+                        setTrustBadgesList(copy);
+                      }}>
+                        {["Package", "Leaf", "Truck", "Lock", "RotateCcw", "Shield", "Sparkles", "Heart", "Star", "Crown", "Palette", "Users"].map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="gold-divider" />
+
+          {/* B2B CTA settings */}
+          <div>
+            <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-2.5 mb-4">B2B Footer Callout (CTA) Settings</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Section Subtitle Tag"><input className="i" value={ctaSubtitle} onChange={(e) => setCtaSubtitle(e.target.value)} placeholder="e.g. Bulk & Custom" /></Field>
+                <Field label="Headline Headline Title"><input className="i" value={ctaTitle} onChange={(e) => setCtaTitle(e.target.value)} placeholder="e.g. Weddings, brands, and grand occasions." /></Field>
+              </div>
+              <Field label="Paragraph Description Copy">
+                <textarea rows={3} className="i rounded-xl py-3" value={ctaDesc} onChange={(e) => setCtaDesc(e.target.value)} placeholder="Explain bulk pricing and details..." />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Button CTA Action Text"><input className="i" value={ctaBtnText} onChange={(e) => setCtaBtnText(e.target.value)} placeholder="e.g. Start a Bulk Inquiry" /></Field>
+                <Field label="Button Destination Link URL"><input className="i" value={ctaBtnUrl} onChange={(e) => setCtaBtnUrl(e.target.value)} placeholder="e.g. /bulk" /></Field>
+              </div>
             </div>
           </div>
 
@@ -1931,10 +2924,12 @@ function CustomersCMS() {
                 </td>
                 <td className="p-4 text-xs font-mono">{u.email}</td>
                 <td className="p-4 text-xs">
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
-                    u.role === "admin" ? "bg-gold/10 text-gold border-gold/20" : "bg-muted text-muted-foreground border-border"
+                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${
+                    u.role === "admin" 
+                      ? "bg-red-50 text-red-600 border-red-200" 
+                      : "bg-slate-50 text-slate-500 border-slate-200"
                   }`}>
-                    {u.role}
+                    {u.role === "admin" ? "Admin" : "Customer"}
                   </span>
                 </td>
                 <td className="p-4 text-xs">
@@ -2047,11 +3042,29 @@ function OrdersAdmin() {
                     )}
                   </td>
                   <td className="p-4 text-xs">
-                    {(o.orderItems ?? []).map((i: any, k: number) => (
-                      <div key={k} className="text-[11px] leading-relaxed mb-0.5">
-                        {i.quantity}× {i.name} <span className="text-muted-foreground text-[10px]">(₹{i.price})</span>
-                      </div>
-                    ))}
+                    <div className="flex flex-col gap-2">
+                      {(o.orderItems ?? []).map((i: any, k: number) => (
+                        <div key={k} className="flex items-center gap-2.5">
+                          {i.image ? (
+                            <img
+                              src={i.image}
+                              alt={i.name}
+                              className="w-10 h-10 object-cover rounded-lg border border-border shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-cream rounded-lg border border-border flex items-center justify-center text-[9px] text-muted-foreground shrink-0">
+                              No Pic
+                            </div>
+                          )}
+                          <div className="leading-tight">
+                            <p className="font-medium text-foreground">{i.name}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {i.quantity} × <span className="text-gold font-medium">₹{i.price}</span>
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </td>
                   <td className="p-4 text-xs font-bold text-gold">₹{o.totalPrice}</td>
                   <td className="p-4 text-xs text-muted-foreground font-mono">
@@ -2568,6 +3581,17 @@ function SettingsAdmin() {
   const [pincodeMode, setPincodeMode] = useState("blacklist");
   const [pincodesList, setPincodesList] = useState("7, 8");
 
+  // About Page CMS fields
+  const [aboutTitle, setAboutTitle] = useState("Our Story");
+  const [aboutSubtitle, setAboutSubtitle] = useState("A gift is more than what's inside.");
+  const [aboutDesc, setAboutDesc] = useState("");
+  const [aboutPhilosophyHeading, setAboutPhilosophyHeading] = useState("Beautifully reusable.");
+  const [aboutPhilosophyDesc, setAboutPhilosophyDesc] = useState("");
+  const [aboutCraftHeading, setAboutCraftHeading] = useState("Made by hand, in India.");
+  const [aboutCraftDesc, setAboutCraftDesc] = useState("");
+  const [aboutStoryImage, setAboutStoryImage] = useState("");
+  const [aboutCraftImage, setAboutCraftImage] = useState("");
+
   const loadSettings = async () => {
     setLoading(true);
     try {
@@ -2595,6 +3619,17 @@ function SettingsAdmin() {
           setPincodeMode(data.pincode_settings.mode || "blacklist");
           setPincodesList(data.pincode_settings.pincodes || "");
         }
+        if (data.about_page) {
+          setAboutTitle(data.about_page.title || "Our Story");
+          setAboutSubtitle(data.about_page.subtitle || "A gift is more than what's inside.");
+          setAboutDesc(data.about_page.description || "");
+          setAboutPhilosophyHeading(data.about_page.philosophyHeading || "Beautifully reusable.");
+          setAboutPhilosophyDesc(data.about_page.philosophyDesc || "");
+          setAboutCraftHeading(data.about_page.craftHeading || "Made by hand, in India.");
+          setAboutCraftDesc(data.about_page.craftDesc || "");
+          setAboutStoryImage(data.about_page.storyImage || "");
+          setAboutCraftImage(data.about_page.craftImage || "");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -2611,11 +3646,23 @@ function SettingsAdmin() {
       const payloadContact = { whatsapp, email, phone, address };
       const payloadGeneral = { brandName, logoUrl, favicon, insta, facebook, amazon, flipkart, colorGold, colorCream };
       const payloadPincodes = { mode: pincodeMode, pincodes: pincodesList };
+      const payloadAbout = {
+        title: aboutTitle,
+        subtitle: aboutSubtitle,
+        description: aboutDesc,
+        philosophyHeading: aboutPhilosophyHeading,
+        philosophyDesc: aboutPhilosophyDesc,
+        craftHeading: aboutCraftHeading,
+        craftDesc: aboutCraftDesc,
+        storyImage: aboutStoryImage,
+        craftImage: aboutCraftImage
+      };
 
       await Promise.all([
         apiClient.put("/settings/contact_info", { value: payloadContact }),
         apiClient.put("/settings/general_settings", { value: payloadGeneral }),
-        apiClient.put("/settings/pincode_settings", { value: payloadPincodes })
+        apiClient.put("/settings/pincode_settings", { value: payloadPincodes }),
+        apiClient.put("/settings/about_page", { value: payloadAbout })
       ]);
 
       toast.success("Website settings updated successfully!");
@@ -2709,6 +3756,39 @@ function SettingsAdmin() {
                 onChange={(e) => setPincodesList(e.target.value)}
                 placeholder="e.g. 7, 8 (or specific pincodes like 110001, 380009)"
               />
+            </Field>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="serif text-lg font-semibold text-gold border-b border-border pb-3 mb-4">About Page Content (Our Story)</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Page Header Section Title"><input className="i" value={aboutTitle} onChange={(e) => setAboutTitle(e.target.value)} placeholder="e.g. Our Story" /></Field>
+            <Field label="Page Header Subtitle"><input className="i" value={aboutSubtitle} onChange={(e) => setAboutSubtitle(e.target.value)} placeholder="e.g. A gift is more than what's inside." /></Field>
+            <Field label="Main Story Description Paragraph" full>
+              <textarea rows={3} className="i rounded-xl py-3" value={aboutDesc} onChange={(e) => setAboutDesc(e.target.value)} placeholder="Main text/paragraphs on the About Page..." />
+            </Field>
+
+            <Field label="Philosophy Sub-Heading"><input className="i" value={aboutPhilosophyHeading} onChange={(e) => setAboutPhilosophyHeading(e.target.value)} placeholder="e.g. Beautifully reusable." /></Field>
+            <Field label="Story Main Image URL">
+              <div className="flex gap-2 items-center">
+                <input className="i flex-1" value={aboutStoryImage} onChange={(e) => setAboutStoryImage(e.target.value)} placeholder="URL link to story illustration image" />
+                <ImageUploader onUploadSuccess={(url) => setAboutStoryImage(url)} />
+              </div>
+            </Field>
+            <Field label="Philosophy Description Paragraph" full>
+              <textarea rows={3} className="i rounded-xl py-3" value={aboutPhilosophyDesc} onChange={(e) => setAboutPhilosophyDesc(e.target.value)} placeholder="Explanation about philosophy..." />
+            </Field>
+
+            <Field label="Craft Sub-Heading"><input className="i" value={aboutCraftHeading} onChange={(e) => setAboutCraftHeading(e.target.value)} placeholder="e.g. Made by hand, in India." /></Field>
+            <Field label="Craft Detail Illustration URL">
+              <div className="flex gap-2 items-center">
+                <input className="i flex-1" value={aboutCraftImage} onChange={(e) => setAboutCraftImage(e.target.value)} placeholder="URL link to craft process image" />
+                <ImageUploader onUploadSuccess={(url) => setAboutCraftImage(url)} />
+              </div>
+            </Field>
+            <Field label="Craft Description Paragraph" full>
+              <textarea rows={3} className="i rounded-xl py-3" value={aboutCraftDesc} onChange={(e) => setAboutCraftDesc(e.target.value)} placeholder="Explanation about artisans and crafting..." />
             </Field>
           </div>
         </div>
@@ -2992,7 +4072,7 @@ function MediaLibrary() {
 /* ────────────────────────────────────────────────────────
    16. B2B BULK INQUIRIES
    ──────────────────────────────────────────────────────── */
-function BulkInquiriesAdmin() {
+function BulkInquiriesAdmin({ onRefresh }: { onRefresh?: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -3018,6 +4098,7 @@ function BulkInquiriesAdmin() {
       if (res?.success) {
         toast.success("Wholesale inquiry status updated!");
         load();
+        if (onRefresh) onRefresh();
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to update status");
@@ -3156,6 +4237,315 @@ function CustomPrintingAdmin() {
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────
+   18. CUSTOMER SUPPORT CMS (date-wise master-detail view)
+   ──────────────────────────────────────────────────────── */
+function CustomerSupportCMS({ onRefresh }: { onRefresh?: () => void }) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedMsg, setSelectedMsg] = useState<any>(null);
+  const [replyText, setReplyText] = useState("");
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  useEffect(() => {
+    if (selectedMsg) {
+      setReplyText(selectedMsg.adminReply || "");
+    } else {
+      setReplyText("");
+    }
+  }, [selectedMsg]);
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) return toast.error("Please enter a reply message");
+    setSubmittingReply(true);
+    try {
+      const res = await apiClient.put(`/admin/support-messages/${selectedMsg._id}/reply`, {
+        adminReply: replyText
+      });
+      if (res?.success) {
+        toast.success("Reply saved successfully");
+        await load();
+        if (onRefresh) onRefresh();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit reply");
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get("/admin/support-messages");
+      if (res?.success && Array.isArray(res.data)) {
+        setMessages(res.data);
+        if (res.data.length > 0) {
+          setSelectedMsg((prev: any) => {
+            if (!prev) return res.data[0];
+            const updated = res.data.find(m => m._id === prev._id);
+            return updated || res.data[0];
+          });
+        } else {
+          setSelectedMsg(null);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load customer support messages");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleStatusUpdate = async (id: string, status: string) => {
+    try {
+      const res = await apiClient.put(`/admin/support-messages/${id}/status`, { status });
+      if (res?.success) {
+        toast.success(`Message marked as ${status}`);
+        load();
+        if (onRefresh) onRefresh();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update status");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to permanently delete this message?")) return;
+    try {
+      const res = await apiClient.delete(`/admin/support-messages/${id}`);
+      if (res?.success) {
+        toast.success("Message deleted successfully");
+        if (selectedMsg?._id === id) {
+          setSelectedMsg(null);
+        }
+        load();
+        if (onRefresh) onRefresh();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete message");
+    }
+  };
+
+  const filtered = useMemo(() => {
+    return messages.filter(m =>
+      (m.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (m.email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (m.subject || "").toLowerCase().includes(search.toLowerCase()) ||
+      (m.message || "").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [messages, search]);
+
+  if (loading && messages.length === 0) {
+    return <div className="py-20 text-center text-muted-foreground animate-pulse font-serif">Compiling support inquiries…</div>;
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in h-[calc(100vh-140px)] flex flex-col">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+        <div>
+          <h2 className="serif text-3xl font-semibold">Customer Support</h2>
+          <p className="text-xs text-muted-foreground mt-1">Manage and read inquiries submitted by customers through the Contact Us form.</p>
+        </div>
+        
+        {/* Search */}
+        <div className="relative max-w-sm w-full">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+          <input
+            className="w-full pl-10 pr-4 py-2.5 rounded-full border border-border bg-white text-xs placeholder:text-muted-foreground/60 focus:border-gold focus:ring-0 transition outline-none"
+            placeholder="Search by name, email, or message contents..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
+        {/* Left Side: Messages list */}
+        <div className="lg:col-span-5 bg-white border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden h-full">
+          <div className="p-4 border-b border-border/60 bg-cream/20 flex items-center justify-between shrink-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Inbox ({filtered.length})</span>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto divide-y divide-border/60 scrollbar-thin">
+            {filtered.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-xs font-medium">No messages found.</div>
+            ) : (
+              filtered.map((msg) => {
+                const isSelected = selectedMsg?._id === msg._id;
+                const formattedDate = new Date(msg.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+                
+                return (
+                  <button
+                    key={msg._id}
+                    onClick={() => setSelectedMsg(msg)}
+                    className={`w-full text-left p-4 hover:bg-cream/10 transition-all flex flex-col gap-1.5 relative border-l-4 ${
+                      isSelected 
+                        ? "bg-cream/20 border-l-gold" 
+                        : msg.status === "New" 
+                          ? "border-l-red-500 font-medium" 
+                          : "border-l-transparent"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start w-full">
+                      <span className="text-xs font-bold text-foreground truncate max-w-[150px]">{msg.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">{formattedDate}</span>
+                    </div>
+                    <div className="text-xs font-semibold text-gold truncate">{msg.subject}</div>
+                    <div className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                      {msg.message}
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-1 w-full shrink-0">
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border ${
+                        msg.status === "New" ? "bg-red-50 text-red-700 border-red-100" :
+                        msg.status === "Read" ? "bg-blue-50 text-blue-700 border-blue-100" :
+                        "bg-emerald-50 text-emerald-700 border-emerald-100"
+                      }`}>
+                        {msg.status}
+                      </span>
+                      {msg.phone && <span className="text-[9px] text-muted-foreground font-mono">{msg.phone}</span>}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Right Side: Message details master view */}
+        <div className="lg:col-span-7 bg-white border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden h-full">
+          {selectedMsg ? (
+            <div className="flex flex-col h-full">
+              {/* Header Info */}
+              <div className="p-6 border-b border-border bg-cream/5 flex flex-col gap-4 shrink-0">
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <h3 className="serif text-xl font-bold text-foreground">{selectedMsg.subject}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Submitted on: <span className="font-mono">{new Date(selectedMsg.createdAt).toLocaleString()}</span>
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleStatusUpdate(selectedMsg._id, "Read")}
+                      disabled={selectedMsg.status === "Read"}
+                      className="px-3.5 py-1.5 rounded-full border border-border bg-white text-xs hover:border-gold hover:text-gold transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Mark Read
+                    </button>
+                    <button 
+                      onClick={() => handleStatusUpdate(selectedMsg._id, "Replied")}
+                      disabled={selectedMsg.status === "Replied"}
+                      className="px-3.5 py-1.5 rounded-full bg-foreground text-background text-xs hover:bg-foreground/90 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Mark Replied
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(selectedMsg._id)}
+                      className="p-2.5 rounded-full border border-red-200 text-red-600 bg-white hover:bg-red-50 hover:border-red-400 transition"
+                      title="Delete message"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4 pt-2 border-t border-border/40">
+                  <div className="flex items-center gap-2 text-xs">
+                    <User className="h-4 w-4 text-gold shrink-0" />
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider block">Customer</span>
+                      <span className="font-semibold text-foreground">{selectedMsg.name}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-xs">
+                    <Mail className="h-4 w-4 text-gold shrink-0" />
+                    <div className="truncate">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider block">Email</span>
+                      <a href={`mailto:${selectedMsg.email}`} className="font-semibold text-gold hover:underline truncate block">{selectedMsg.email}</a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <Phone className="h-4 w-4 text-gold shrink-0" />
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider block">Phone</span>
+                      <span className="font-semibold text-foreground font-mono">{selectedMsg.phone || "Not provided"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Message Content Body */}
+              <div className="flex-1 p-6 overflow-y-auto bg-[#FDFBF7]/20 scrollbar-thin space-y-6">
+                <div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-widest font-semibold border-b border-border/40 pb-2 mb-3">Customer Message</div>
+                  <div className="text-sm text-foreground/90 leading-relaxed font-sans whitespace-pre-wrap">
+                    {selectedMsg.message}
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40 pt-5 space-y-3">
+                  <div className="text-xs text-muted-foreground uppercase tracking-widest font-semibold pb-1">Concierge Response</div>
+                  
+                  {selectedMsg.adminReply && (
+                    <div className="bg-cream/15 border border-gold/25 p-4 rounded-xl mb-3">
+                      <span className="text-[10px] uppercase tracking-wider text-gold font-bold block mb-1">Current Reply</span>
+                      <p className="text-xs text-foreground/80 leading-relaxed italic">"{selectedMsg.adminReply}"</p>
+                    </div>
+                  )}
+
+                  <textarea
+                    rows={4}
+                    placeholder="Type your official reply here. The customer will be able to view this on their account support portal."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    className="w-full p-4 rounded-xl border border-border bg-white text-xs placeholder:text-muted-foreground/60 focus:border-gold focus:ring-0 transition outline-none resize-none font-sans"
+                  />
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={handleSendReply}
+                      disabled={submittingReply}
+                      className="px-5 py-2 rounded-full bg-foreground text-background text-xs font-semibold hover:bg-foreground/90 transition shadow-sm disabled:opacity-50"
+                    >
+                      {submittingReply ? "Saving Reply..." : selectedMsg.adminReply ? "Update Reply" : "Send Reply"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground/60 animate-in fade-in">
+              <div className="h-16 w-16 bg-cream border border-gold/20 rounded-full flex items-center justify-center text-gold mb-4">
+                <Mail className="h-7 w-7" />
+              </div>
+              <h4 className="serif text-xl font-medium mb-1 text-foreground">Select a Message</h4>
+              <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                Choose a customer inquiry from the left panel to review full detail information and update support status.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ export type DBProduct = {
   amazon_url?: string | null;
   flipkart_url?: string | null;
   createdAt: string;
+  priority?: number;
 };
 
 export const dbToProduct = (d: DBProduct): Product => {
@@ -59,6 +60,7 @@ export const dbToProduct = (d: DBProduct): Product => {
     colors: ["Ivory", "Gold", "Blush"],
     sizes: ["S", "M", "L"],
     description: d.description || "",
+    priority: d.priority !== undefined ? d.priority : 99999,
   };
 };
 

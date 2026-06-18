@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { apiClient } from "@/lib/apiClient";
 import { toast } from "sonner";
+import { useAuth } from "@/components/AuthContext";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/contact")({
 });
 
 function Contact() {
+  const { user } = useAuth();
+  const nav = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -22,6 +25,13 @@ function Contact() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
 
   useEffect(() => {
     (async () => {
@@ -38,6 +48,11 @@ function Contact() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast.error("Please sign in or register to submit a support inquiry.");
+      nav({ to: "/auth" });
+      return;
+    }
     if (!name || !email || !subject || !message) {
       return toast.error("Please fill in all required fields.");
     }

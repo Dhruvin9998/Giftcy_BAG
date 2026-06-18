@@ -3,6 +3,7 @@ import Category from '../models/Category.js';
 import Product from '../models/Product.js';
 import Collection from '../models/Collection.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
+import { deleteLocalFile } from '../utils/fileDelete.js';
 
 const router = express.Router();
 
@@ -61,14 +62,16 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * @desc    Get collection details & populated products list by slug
+ * @desc    Get collection by slug
  * @route   GET /api/v1/collections/:slug
  * @access  Public
  */
 router.get('/:slug', async (req, res) => {
   try {
-    const cleanSlug = (req.params.slug || '').trim();
-    const collection = await Collection.findOne({ slug: cleanSlug }).populate('products');
+    const collection = await Collection.findOne({ slug: req.params.slug }).populate({
+      path: 'products',
+      options: { sort: { priority: 1, createdAt: -1 } }
+    });
     if (!collection) {
       return res.status(404).json({
         success: false,
@@ -78,7 +81,7 @@ router.get('/:slug', async (req, res) => {
     res.json({
       success: true,
       data: collection,
-      message: 'Collection details fetched successfully',
+      message: 'Collection fetched successfully',
     });
   } catch (error) {
     res.status(500).json({
@@ -89,16 +92,29 @@ router.get('/:slug', async (req, res) => {
 });
 
 /**
- * @desc    Create a new collection
+ * @desc    Create a collection
  * @route   POST /api/v1/collections
  * @access  Private/Admin
  */
 router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
     const { name, slug, description, image, products } = req.body;
-    const collection = await Collection.create({ name, slug, description, image, products });
-    
-    // Maintain bidirectional references if products are specified
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Collection name is required',
+      });
+    }
+
+    const collection = await Collection.create({
+      name,
+      slug,
+      description,
+      image,
+      products,
+    });
+
+    // Sync bidirectional product mapping
     if (Array.isArray(products) && products.length > 0) {
       await Product.updateMany(
         { _id: { $in: products } },
@@ -106,7 +122,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
       );
     }
 
-    res.status(201).json({
+    res.status(210).json({
       success: true,
       data: collection,
       message: 'Collection created successfully',
@@ -132,6 +148,11 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
     const oldCollection = await Collection.findById(req.params.id);
     if (!oldCollection) {
       return res.status(404).json({ success: false, message: 'Collection not found' });
+    }
+
+    // Delete old image if a different one is uploaded
+    if (image && oldCollection.image && image !== oldCollection.image) {
+      deleteLocalFile(oldCollection.image);
     }
 
     const collection = await Collection.findByIdAndUpdate(
@@ -178,6 +199,11 @@ router.delete('/:id', protect, authorize('admin'), async (req, res) => {
         success: false,
         message: 'Collection not found',
       });
+    }
+
+    // Clean up collection cover image from disk if local
+    if (collection.image) {
+      deleteLocalFile(collection.image);
     }
 
     // Pull collection reference from all products

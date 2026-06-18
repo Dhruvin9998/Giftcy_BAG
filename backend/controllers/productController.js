@@ -2,6 +2,7 @@ import Product from '../models/Product.js';
 import Category from '../models/Category.js';
 import ApiError from '../utils/apiError.js';
 import ApiResponse from '../utils/apiResponse.js';
+import { deleteLocalFile } from '../utils/fileDelete.js';
 
 // =========================================================================
 // PRODUCT CONTROLLERS
@@ -67,7 +68,7 @@ export const getProducts = async (req, res, next) => {
     if (isNewArrival !== undefined) query.isNewArrival = isNewArrival === 'true';
 
     // 5. Sorting Options
-    let sort = '-createdAt'; // Default sorting: newest
+    let sort = 'priority -createdAt'; // Default sorting: priority asc, then newest
     if (sortBy) {
       if (sortBy === 'priceAsc') sort = 'price';
       else if (sortBy === 'priceDesc') sort = '-price';
@@ -83,7 +84,7 @@ export const getProducts = async (req, res, next) => {
     // Execute query
     const total = await Product.countDocuments(query);
     const products = await Product.find(query)
-      .populate('category', 'name slug')
+      .populate('category', 'name slug image')
       .sort(sort)
       .skip(skip)
       .limit(limitNumber);
@@ -117,7 +118,7 @@ export const getProductByIdOrSlug = async (req, res, next) => {
       ? { _id: cleanIdOrSlug }
       : { slug: cleanIdOrSlug };
 
-    const product = await Product.findOne(query).populate('category', 'name slug');
+    const product = await Product.findOne(query).populate('category', 'name slug image');
 
     if (!product) {
       return next(new ApiError(404, 'Product not found'));
@@ -142,6 +143,16 @@ export const createProduct = async (req, res, next) => {
     const categoryExists = await Category.findById(category);
     if (!categoryExists) {
       return next(new ApiError(404, 'Selected category does not exist'));
+    }
+
+    // Sanitize priority: default to 99999 if not specified, null, empty or 0
+    if (req.body.priority !== undefined) {
+      const pVal = req.body.priority;
+      if (pVal === null || pVal === '' || Number(pVal) === 0) {
+        req.body.priority = 99999;
+      } else {
+        req.body.priority = Number(pVal);
+      }
     }
 
     const product = await Product.create(req.body);
@@ -172,6 +183,22 @@ export const updateProduct = async (req, res, next) => {
       }
     }
 
+    // Sanitize priority: default to 99999 if null, empty or 0
+    if (req.body.priority !== undefined) {
+      const pVal = req.body.priority;
+      if (pVal === null || pVal === '' || Number(pVal) === 0) {
+        req.body.priority = 99999;
+      } else {
+        req.body.priority = Number(pVal);
+      }
+    }
+
+    // Clean up replaced images from disk
+    if (Array.isArray(req.body.images) && Array.isArray(product.images)) {
+      const removedImages = product.images.filter(img => !req.body.images.includes(img));
+      removedImages.forEach(img => deleteLocalFile(img));
+    }
+
     product = await Product.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
@@ -194,6 +221,11 @@ export const deleteProduct = async (req, res, next) => {
 
     if (!product) {
       return next(new ApiError(404, 'Product not found'));
+    }
+
+    // Clean up all product images from disk
+    if (Array.isArray(product.images)) {
+      product.images.forEach(img => deleteLocalFile(img));
     }
 
     await Product.findByIdAndDelete(req.params.id);

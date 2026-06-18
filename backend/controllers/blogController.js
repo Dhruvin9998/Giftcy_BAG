@@ -1,6 +1,7 @@
 import Blog from '../models/Blog.js';
 import ApiResponse from '../utils/apiResponse.js';
 import ApiError from '../utils/apiError.js';
+import { deleteLocalFile } from '../utils/fileDelete.js';
 
 export const getAllBlogs = async (req, res, next) => {
   try {
@@ -41,10 +42,16 @@ export const createBlog = async (req, res, next) => {
 
 export const updateBlog = async (req, res, next) => {
   try {
-    const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!blog) {
+    const oldBlog = await Blog.findById(req.params.id);
+    if (!oldBlog) {
       return next(new ApiError(404, 'Blog post not found'));
     }
+
+    if (req.body.featuredImage && oldBlog.featuredImage && req.body.featuredImage !== oldBlog.featuredImage) {
+      deleteLocalFile(oldBlog.featuredImage);
+    }
+
+    const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true });
     new ApiResponse(200, blog, 'Blog post updated successfully.').send(res);
   } catch (error) {
     next(error);
@@ -57,6 +64,11 @@ export const deleteBlog = async (req, res, next) => {
     if (!blog) {
       return next(new ApiError(404, 'Blog post not found'));
     }
+
+    if (blog.featuredImage) {
+      deleteLocalFile(blog.featuredImage);
+    }
+
     new ApiResponse(200, null, 'Blog post deleted successfully.').send(res);
   } catch (error) {
     next(error);

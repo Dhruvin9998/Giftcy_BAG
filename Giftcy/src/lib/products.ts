@@ -17,6 +17,7 @@ export type Product = {
   colors: string[];
   sizes: string[];
   description: string;
+  priority?: number;
 };
 
 export const products: Product[] = [

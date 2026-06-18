@@ -28,6 +28,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
             src={product.image}
             alt={product.name}
             loading="lazy"
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; }}
             className="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-105"
           />
         </Link>

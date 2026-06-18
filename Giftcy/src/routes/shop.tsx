@@ -1,16 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { useProducts } from "@/lib/useProducts";
 import { ProductCard } from "@/components/ProductCard";
+import { apiClient } from "@/lib/apiClient";
 
 export type ShopSearch = {
   search?: string;
+  category?: string;
 };
 
 export const Route = createFileRoute("/shop")({
   validateSearch: (s: Record<string, unknown>): ShopSearch => ({
     search: (s.search as string) || undefined,
+    category: (s.category as string) || undefined,
   }),
   head: () => ({
     meta: [
@@ -26,16 +29,44 @@ const colors = ["Ivory", "Gold", "Blush", "Beige", "Cream"];
 const sizes = ["S", "M", "L", "XL"];
 
 function Shop() {
-  const { search } = Route.useSearch();
+  const { search, category } = Route.useSearch();
   const [occasion, setOccasion] = useState("All");
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [maxPrice, setMaxPrice] = useState<number>(1000);
   const [sort, setSort] = useState<string>("featured");
   const { products, loading } = useProducts();
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/categories");
+        if (res?.success && Array.isArray(res.data)) {
+          setCategories(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load categories in shop", err);
+      }
+    })();
+  }, []);
+
+  const currentCategory = category
+    ? categories.find((c) => c.slug.toLowerCase() === category.toLowerCase())
+    : null;
 
   // Filter products based on active filters
   const filtered = products.filter((p) => {
+    // Category Filter (from URL query param)
+    if (category) {
+      const catName = currentCategory ? currentCategory.name : category;
+      const normalizedCat = catName.toLowerCase().replace(/-bags$/, "").replace(/s$/, ""); // normalize
+      const pCat = p.category.toLowerCase().replace(/-bags$/, "").replace(/s$/, "");
+      if (!pCat.includes(normalizedCat) && !normalizedCat.includes(pCat)) {
+        return false;
+      }
+    }
+
     // 0. Search Query Filter
     if (
       search &&
@@ -61,22 +92,55 @@ function Shop() {
     return true;
   });
 
-  // Sort products
-  const sorted = [...filtered].sort((a, b) => {
-    if (sort === "low-high") return a.price - b.price;
-    if (sort === "high-low") return b.price - a.price;
-    if (sort === "newest") return b.badge === "New" ? 1 : -1;
-    return b.badge === "Bestseller" ? 1 : -1; // Default featured sort
-  });
+  // Sort products stably preserving API/original order for equal criteria
+  const sorted = [...filtered]
+    .map((p, idx) => ({ p, idx }))
+    .sort((a, b) => {
+      if (sort === "low-high") return a.p.price - b.p.price;
+      if (sort === "high-low") return b.p.price - a.p.price;
+      if (sort === "newest") {
+        if (a.p.badge === "New" && b.p.badge !== "New") return -1;
+        if (a.p.badge !== "New" && b.p.badge === "New") return 1;
+        return a.idx - b.idx;
+      }
+      
+      // Default featured sort: by priority (lower value first)
+      const priorityDiff = (a.p.priority ?? 99999) - (b.p.priority ?? 99999);
+      if (priorityDiff !== 0) return priorityDiff;
+      
+      // If priorities are equal, place Bestsellers first
+      if (a.p.badge === "Bestseller" && b.p.badge !== "Bestseller") return -1;
+      if (a.p.badge !== "Bestseller" && b.p.badge === "Bestseller") return 1;
+      
+      // Fallback to original API response order (which has newer items first)
+      return a.idx - b.idx;
+    })
+    .map(({ p }) => p);
+
+  const heroTitle = currentCategory ? currentCategory.name : "Premium Gift Bags";
+  const heroSubtitle = currentCategory ? "The Category" : "The Collection";
+  const heroDesc = currentCategory
+    ? `Discover our range of premium ${currentCategory.name.toLowerCase()}.`
+    : "Discover our full range of handcrafted reusable fabric bags for every occasion.";
 
   return (
     <>
-      <section className="bg-cream py-16 lg:py-24 border-b border-border">
-        <div className="mx-auto max-w-7xl px-5 lg:px-10 text-center">
-          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">The Collection</p>
-          <h1 className="serif text-5xl lg:text-7xl mt-3">Premium Gift Bags</h1>
-          <p className="mt-4 max-w-xl mx-auto text-muted-foreground">
-            Discover our full range of handcrafted reusable fabric bags for every occasion.
+      <section className="relative py-16 lg:py-24 border-b border-border overflow-hidden bg-cream">
+        {currentCategory?.image && (
+          <>
+            <div className="absolute inset-0 bg-black/40 z-10" />
+            <img
+              src={currentCategory.image}
+              alt={currentCategory.name}
+              className="absolute inset-0 w-full h-full object-cover select-none"
+            />
+          </>
+        )}
+        <div className={`relative mx-auto max-w-7xl px-5 lg:px-10 text-center ${currentCategory?.image ? "text-white z-20" : "text-foreground"}`}>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-gold">{heroSubtitle}</p>
+          <h1 className="serif text-5xl lg:text-7xl mt-3">{heroTitle}</h1>
+          <p className={`mt-4 max-w-xl mx-auto ${currentCategory?.image ? "text-gray-200/90" : "text-muted-foreground"}`}>
+            {heroDesc}
           </p>
         </div>
       </section>
@@ -162,7 +226,7 @@ function Shop() {
           </FilterGroup>
 
           {/* Reset Filters */}
-          {(occasion !== "All" || selectedColor || selectedSize || maxPrice < 1000 || search) && (
+          {(occasion !== "All" || selectedColor || selectedSize || maxPrice < 1000 || search || category) && (
             <button
               onClick={() => {
                 setOccasion("All");
@@ -179,6 +243,21 @@ function Shop() {
 
         {/* GRID */}
         <div>
+          {category && (
+            <div className="mb-6 p-4 rounded-xl bg-cream border border-border flex items-center justify-between animate-in slide-in-from-top duration-300">
+              <p className="text-sm">
+                Showing category "<span className="font-semibold text-gold">{currentCategory?.name || category}</span>"
+              </p>
+              <Link
+                to="/shop"
+                search={{ category: undefined, search }}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Clear Category Filter
+              </Link>
+            </div>
+          )}
+
           {search && (
             <div className="mb-6 p-4 rounded-xl bg-cream border border-border flex items-center justify-between animate-in slide-in-from-top duration-300">
               <p className="text-sm">
@@ -186,7 +265,7 @@ function Shop() {
               </p>
               <Link
                 to="/shop"
-                search={{ search: undefined }}
+                search={{ search: undefined, category }}
                 className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
               >
                 Clear Search

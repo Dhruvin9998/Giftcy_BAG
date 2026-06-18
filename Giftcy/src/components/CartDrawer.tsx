@@ -32,7 +32,12 @@ export function CartDrawer() {
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
               {items.map((it) => (
                 <div key={it.product.slug} className="flex gap-4">
-                  <img src={it.product.image} alt={it.product.name} className="h-24 w-24 rounded-lg object-cover bg-secondary" />
+                  <img
+                    src={it.product.image}
+                    alt={it.product.name}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; }}
+                    className="h-24 w-24 rounded-lg object-cover bg-secondary"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
                       <p className="serif text-lg leading-tight">{it.product.name}</p>

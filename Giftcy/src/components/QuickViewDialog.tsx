@@ -47,6 +47,7 @@ export function QuickViewDialog({ product, open, setOpen }: QuickViewDialogProps
             <img
               src={product.image}
               alt={product.name}
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; }}
               className="h-full w-full object-cover"
             />
             {off > 0 && (

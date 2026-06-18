@@ -1,8 +1,10 @@
 import express from 'express';
-import { submitContactForm } from '../controllers/adminController.js';
+import { submitContactForm, getMyContactMessages } from '../controllers/adminController.js';
+import { protect, optionalProtect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.post('/', submitContactForm);
+router.post('/', protect, submitContactForm);
+router.get('/my-messages', protect, getMyContactMessages);
 
 export default router;

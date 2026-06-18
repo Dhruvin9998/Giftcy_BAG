@@ -124,13 +124,30 @@ function CollectionPage() {
     return true;
   });
 
-  // Sorting Logic
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    if (sort === "low-high") return a.price - b.price;
-    if (sort === "high-low") return b.price - a.price;
-    if (sort === "newest") return b.badge === "New" ? 1 : -1;
-    return b.badge === "Bestseller" ? 1 : -1; // Default featured sort
-  });
+  // Sorting Logic stably preserving API/original order for equal criteria
+  const sortedProducts = [...filteredProducts]
+    .map((p, idx) => ({ p, idx }))
+    .sort((a, b) => {
+      if (sort === "low-high") return a.p.price - b.p.price;
+      if (sort === "high-low") return b.p.price - a.p.price;
+      if (sort === "newest") {
+        if (a.p.badge === "New" && b.p.badge !== "New") return -1;
+        if (a.p.badge !== "New" && b.p.badge === "New") return 1;
+        return a.idx - b.idx;
+      }
+      
+      // Default featured sort: by priority (lower value first)
+      const priorityDiff = (a.p.priority ?? 99999) - (b.p.priority ?? 99999);
+      if (priorityDiff !== 0) return priorityDiff;
+      
+      // If priorities are equal, place Bestsellers first
+      if (a.p.badge === "Bestseller" && b.p.badge !== "Bestseller") return -1;
+      if (a.p.badge !== "Bestseller" && b.p.badge === "Bestseller") return 1;
+      
+      // Fallback to original API response order (which has newer items first)
+      return a.idx - b.idx;
+    })
+    .map(({ p }) => p);
 
   const loading = dbLoading && productsLoading;
 

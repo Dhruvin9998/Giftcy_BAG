@@ -87,12 +87,10 @@ export const getAllMedia = async (req, res, next) => {
 export const deleteMedia = async (req, res, next) => {
   try {
     const filename = req.params.name;
-    const filePath = path.join(uploadDir, filename);
-
-    // Prevent directory traversal attacks
-    if (!filePath.startsWith(uploadDir)) {
-      return next(new ApiError(400, 'Invalid file path'));
-    }
+    
+    // Prevent directory traversal: extract only the base filename
+    const safeFilename = path.basename(filename);
+    const filePath = path.join(uploadDir, safeFilename);
 
     if (!fs.existsSync(filePath)) {
       return next(new ApiError(404, 'File not found on disk'));

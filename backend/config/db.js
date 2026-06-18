@@ -3,7 +3,10 @@ import Category from '../models/Category.js';
 import Product from '../models/Product.js';
 import Settings from '../models/Settings.js';
 import User from '../models/User.js';
+import Collection from '../models/Collection.js';
 import { setupMockDb } from './mockDbSetup.js';
+import bcrypt from 'bcryptjs';
+import dns from 'dns';
 
 const seedData = async () => {
   try {
@@ -168,6 +171,25 @@ const seedData = async () => {
             mode: "blacklist",
             pincodes: "7, 8"
           }
+        },
+        {
+          key: "homepage_marquee",
+          value: [
+            "Free Shipping ₹999+",
+            "Reusable Fabric",
+            "Made in India",
+            "Bulk Pricing",
+            "Custom Printing"
+          ]
+        },
+        {
+          key: "homepage_wedding_promo",
+          value: {
+            title: "Perfect for Your Big Day",
+            description: "From shagun envelopes to trousseau packaging, our wedding collection transforms every moment of your celebration into a luxurious experience. Custom monograms, matching colours, and bulk pricing available.",
+            image: "",
+            ctaText: "Explore Wedding Collection"
+          }
         }
       ];
       await Settings.insertMany(defaultSettings);
@@ -180,26 +202,195 @@ const seedData = async () => {
       await User.create({
         name: 'Admin User',
         email: 'admin@giftcy.com',
-        password: 'adminpassword',
+        password: 'admin@123',
         role: 'admin',
         isVerified: true
       });
       console.log('Admin user successfully seeded.');
     }
+
+    // Ensure only admin@giftcy.com is permitted to have the admin role, demoting any other admins to standard users
+    const demoteRes = await User.updateMany(
+      { email: { $ne: 'admin@giftcy.com' }, role: 'admin' },
+      { $set: { role: 'user' } }
+    );
+    if (demoteRes.modifiedCount > 0) {
+      console.log(`[Admin Access Safeguard] Safely demoted ${demoteRes.modifiedCount} unauthorized admin accounts to regular users.`);
+    }
+
+    // Automatically repair/hash any plain-text passwords stored in the database
+    const usersWithPassword = await User.find().select('+password');
+    for (const u of usersWithPassword) {
+      if (u.password && (!u.password.startsWith('$2') || u.password.length !== 60)) {
+        console.log(`Detected plain-text password for ${u.email}. Hashing...`);
+        const salt = await bcrypt.genSalt(10);
+        u.password = await bcrypt.hash(u.password, salt);
+        await u.save();
+        console.log(`Password successfully hashed and secured for ${u.email}.`);
+      }
+    }
+
+    // Check if the old "Potli Bags" collection exists or if there are no collections
+    const hasOldCollection = await Collection.findOne({ name: 'Potli Bags' });
+    const collectionsCount = await Collection.countDocuments();
+
+    if (hasOldCollection || collectionsCount === 0) {
+      console.log('Detected old or empty occasion collections. Migrating to Wedding, Festive, Return Gifts, and Birthday...');
+
+      // Delete old collections
+      await Collection.deleteMany({});
+
+      const weddingCol = await Collection.create({
+        name: 'Wedding',
+        slug: 'wedding-gift-bags',
+        description: 'Premium drawstring potlis and shagun envelopes for wedding guest favors.',
+        image: ''
+      });
+
+      const festiveCol = await Collection.create({
+        name: 'Festive',
+        slug: 'festive-bags',
+        description: 'Vibrant silk and brocade gift pouches for Diwali, Eid, and sangeet packaging.',
+        image: ''
+      });
+
+      const returnCol = await Collection.create({
+        name: 'Return Gifts',
+        slug: 'return-gift-bags',
+        description: 'Elegant reusable favor bags and carry bags for returning guest tokens.',
+        image: ''
+      });
+
+      const birthdayCol = await Collection.create({
+        name: 'Birthday',
+        slug: 'birthday',
+        description: 'Delicate pastel fabric pouches and boxes for birthday party favors.',
+        image: ''
+      });
+
+      console.log('Seeded new occasion collections successfully.');
+
+      // Clear all product collection assignments first
+      await Product.updateMany({}, { collections: [] });
+
+      // Link products to the new collections
+      // Wedding collection products
+      await Product.updateMany(
+        { name: { $in: ['Ivory Silk Potli', 'Regal Gold Embroidered', 'Maroon Velvet Potli', 'Pearl White Envelope Bag'] } },
+        { $addToSet: { collections: weddingCol._id } }
+      );
+
+      // Festive collection products
+      await Product.updateMany(
+        { name: { $in: ['Regal Gold Embroidered', 'Maroon Velvet Potli', 'Festive Brocade Box Bag'] } },
+        { $addToSet: { collections: festiveCol._id } }
+      );
+
+      // Return Gifts collection products
+      await Product.updateMany(
+        { name: { $in: ['Blush Tassel Pouch', 'Festive Brocade Box Bag', 'Eco Jute Gift Sack'] } },
+        { $addToSet: { collections: returnCol._id } }
+      );
+
+      // Birthday collection products
+      await Product.updateMany(
+        { name: { $in: ['Blush Tassel Pouch', 'Monogram Linen Tote'] } },
+        { $addToSet: { collections: birthdayCol._id } }
+      );
+
+      console.log('Successfully linked products to collections.');
+    }
+
+    // Clean up category slugs in the database (replaces spaces with hyphens)
+    console.log('Sanitizing category slugs...');
+    const allCategories = await Category.find();
+    for (const cat of allCategories) {
+      if (cat.slug.includes(' ')) {
+        const cleanSlug = cat.slug.replace(/\s+/g, '-');
+        console.log(`Fixing category slug: "${cat.slug}" -> "${cleanSlug}"`);
+        cat.slug = cleanSlug;
+        await cat.save();
+      }
+    }
+    console.log('Category slugs successfully sanitized.');
+
+    // Rename categories to represent actual physical product categories instead of duplicate occasions
+    console.log('Polishing category names...');
+
+    const weddingCat = await Category.findOne({ name: { $regex: /Wedding Gift Bags/i } });
+    if (weddingCat) {
+      weddingCat.name = 'Silk & Satin Pouches';
+      weddingCat.slug = 'silk-satin-pouches';
+      await weddingCat.save();
+      console.log('Polished "Wedding Gift Bags" category name to "Silk & Satin Pouches".');
+    }
+
+    const returnCat = await Category.findOne({ name: { $regex: /Return Gift Bags/i } });
+    if (returnCat) {
+      returnCat.name = 'Velvet Bags';
+      returnCat.slug = 'velvet-bags';
+      await returnCat.save();
+      console.log('Polished "Return Gift Bags" category name to "Velvet Bags".');
+    }
+
+    const customCat = await Category.findOne({ name: { $regex: /Custom Printed Bags/i } });
+    if (customCat) {
+      customCat.name = 'Jute & Linen Totes';
+      customCat.slug = 'jute-linen-totes';
+      await customCat.save();
+      console.log('Polished "Custom Printed Bags" category name to "Jute & Linen Totes".');
+    }
+    // Migrate existing products with priority 0 to default high priority 99999
+    const migratePriorityCount = await Product.updateMany(
+      { priority: 0 },
+      { $set: { priority: 99999 } }
+    );
+    if (migratePriorityCount.modifiedCount > 0) {
+      console.log(`[Database Migration] Migrated ${migratePriorityCount.modifiedCount} products to priority 99999`);
+    }
+    console.log('Category names successfully polished.');
   } catch (error) {
     console.error(`Seeding error: ${error.message}`);
   }
 };
 
 const connectDB = async () => {
+  console.log('[Database] Connecting to MongoDB using MONGODB_URI...');
+
+  // Set DNS servers to Google DNS to bypass router/ISP SRV lookup blocks
   try {
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
+  } catch (dnsErr) {
+    console.warn('Could not set custom DNS servers:', dnsErr.message);
+  }
+
+  // Listen for runtime connection errors or disconnections
+  mongoose.connection.on('error', (err) => {
+    console.error(`Mongoose connection runtime error: ${err.message}`);
+    console.log('Automatically falling back to in-memory mock database to prevent downtime.');
+    setupMockDb();
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    console.warn('Mongoose disconnected from MongoDB. Falling back to in-memory mock database...');
+    setupMockDb();
+  });
+
+  try {
+    // Disable command buffering to prevent hanging queries on network disconnects
+    mongoose.set('bufferCommands', false);
+
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 2000,
+      serverSelectionTimeoutMS: 3000,
+      socketTimeoutMS: 4000,
+      connectTimeoutMS: 4000,
     });
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ MongoDB Connected Successfully: ${conn.connection.host}`);
     await seedData();
   } catch (error) {
-    console.error(`Database Connection Error: ${error.message}`);
+    console.error(`❌ MongoDB Connection Failed! Error: ${error.message}`);
+    console.warn('⚠️  TIP: This error typically means your current IP address is not whitelisted in MongoDB Atlas.');
+    console.warn('   Please go to cloud.mongodb.com -> Security -> Network Access and add your current IP address.');
     setupMockDb();
   }
 };

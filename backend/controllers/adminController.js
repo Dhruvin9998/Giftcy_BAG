@@ -2,8 +2,10 @@ import User from '../models/User.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Coupon from '../models/Coupon.js';
+import Contact from '../models/Contact.js';
 import ApiError from '../utils/apiError.js';
 import ApiResponse from '../utils/apiResponse.js';
+import { sendContactFormEmail } from '../services/emailService.js';
 
 /**
  * @desc    Get Admin dashboard statistics
@@ -82,7 +84,53 @@ export const getDashboardStats = async (req, res, next) => {
       },
     ]);
 
-    // 5. Recent 5 Orders
+    // 5. Monthly sales for the last 6 months (live trend chart)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const monthlySales = await Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: sixMonthsAgo },
+          $or: [
+            { isPaid: true },
+            { paymentMethod: 'COD', status: { $ne: 'Cancelled' } },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+          },
+          sales: { $sum: '$totalPrice' },
+        },
+      },
+    ]);
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const salesTrend = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const year = d.getFullYear();
+      const monthIndex = d.getMonth();
+      const monthNumber = monthIndex + 1;
+      const monthName = monthNames[monthIndex];
+
+      const match = monthlySales.find(
+        (item) => item._id.year === year && item._id.month === monthNumber
+      );
+      salesTrend.push({
+        month: monthName,
+        value: match ? Math.round(match.sales * 100) / 100 : 0,
+      });
+    }
+
+    // 6. Recent 5 Orders
     const recentOrders = await Order.find()
       .populate('user', 'name email')
       .sort('-createdAt')
@@ -104,6 +152,7 @@ export const getDashboardStats = async (req, res, next) => {
           outOfStockCount,
         },
         categorySales,
+        salesTrend,
         recentOrders,
       },
       'Dashboard stats compiled successfully.'
@@ -149,6 +198,11 @@ export const updateUserRole = async (req, res, next) => {
     // Guard: Prevent admin from demoting themselves
     if (user._id.toString() === req.user.id && role === 'user') {
       return next(new ApiError(400, 'You cannot remove your own admin access privileges'));
+    }
+
+    // Guard: Restrict admin role to admin@giftcy.com exclusively
+    if (role === 'admin' && user.email !== 'admin@giftcy.com') {
+      return next(new ApiError(400, 'Only admin@giftcy.com is permitted to hold the admin role.'));
     }
 
     user.role = role;
@@ -264,18 +318,138 @@ export const updateOrderStatus = async (req, res, next) => {
  */
 export const submitContactForm = async (req, res, next) => {
   try {
-    const { name, email, subject, message } = req.body;
+    const { name, email, phone, subject, message } = req.body;
 
     if (!name || !email || !subject || !message) {
       return next(new ApiError(400, 'All fields are required (name, email, subject, message)'));
     }
 
-    console.log(`[Contact Form Received] Subject: ${subject} from ${name} (${email})`);
-    
-    // In production, you would send this to the business email via emailService.
-    // For now we simulate.
+    // Save to Database
+    const contact = await Contact.create({ 
+      name, 
+      email, 
+      phone, 
+      subject, 
+      message,
+      user: req.user?._id
+    });
 
-    new ApiResponse(200, null, 'Message submitted successfully. We will get back to you shortly.').send(res);
+    // Send email to business inbox
+    await sendContactFormEmail(contact).catch(err => {
+      console.error('Failed to send contact notification email:', err.message);
+    });
+
+    new ApiResponse(200, contact, 'Message submitted successfully. We will get back to you shortly.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get all support messages list
+ * @route   GET /api/v1/admin/support-messages
+ * @access  Private/Admin
+ */
+export const getAllSupportMessages = async (req, res, next) => {
+  try {
+    const messages = await Contact.find().sort('-createdAt');
+    new ApiResponse(200, messages, 'Support messages retrieved successfully.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Update support message status
+ * @route   PUT /api/v1/admin/support-messages/:id/status
+ * @access  Private/Admin
+ */
+export const updateSupportMessageStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!status || !['New', 'Read', 'Replied'].includes(status)) {
+      return next(new ApiError(400, 'Please provide a valid status (New, Read, or Replied)'));
+    }
+
+    const msg = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!msg) {
+      return next(new ApiError(404, 'Support message not found'));
+    }
+
+    new ApiResponse(200, msg, 'Message status updated successfully.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Delete support message
+ * @route   DELETE /api/v1/admin/support-messages/:id
+ * @access  Private/Admin
+ */
+export const deleteSupportMessage = async (req, res, next) => {
+  try {
+    const msg = await Contact.findByIdAndDelete(req.params.id);
+    if (!msg) {
+      return next(new ApiError(404, 'Support message not found'));
+    }
+    new ApiResponse(200, null, 'Message deleted successfully.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get logged in user's support messages
+ * @route   GET /api/v1/contact/my-messages
+ * @access  Private
+ */
+export const getMyContactMessages = async (req, res, next) => {
+  try {
+    const messages = await Contact.find({
+      $or: [
+        { user: req.user.id },
+        { email: req.user.email }
+      ]
+    }).sort('-createdAt');
+    
+    new ApiResponse(200, messages, 'Your support messages retrieved successfully.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Reply to a support message
+ * @route   PUT /api/v1/admin/support-messages/:id/reply
+ * @access  Private/Admin
+ */
+export const replySupportMessage = async (req, res, next) => {
+  try {
+    const { adminReply } = req.body;
+    if (!adminReply || adminReply.trim() === '') {
+      return next(new ApiError(400, 'Please provide a reply message'));
+    }
+
+    const msg = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { 
+        adminReply,
+        status: 'Replied'
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!msg) {
+      return next(new ApiError(404, 'Support message not found'));
+    }
+
+    new ApiResponse(200, msg, 'Reply saved and message status updated to Replied.').send(res);
   } catch (error) {
     next(error);
   }
@@ -327,6 +501,54 @@ export const resetUserPasswordByAdmin = async (req, res, next) => {
     await user.save();
 
     new ApiResponse(200, null, 'User password reset successfully.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get inventory stock and sold quantities report
+ * @route   GET /api/v1/admin/stock-status
+ * @access  Private/Admin
+ */
+export const getStockStatus = async (req, res, next) => {
+  try {
+    // Aggregate total sold units per product ID from all active, paid/delivered orders
+    const salesData = await Order.aggregate([
+      {
+        $match: {
+          $or: [
+            { isPaid: true },
+            { paymentMethod: 'COD', status: { $ne: 'Cancelled' } }
+          ]
+        }
+      },
+      { $unwind: '$orderItems' },
+      {
+        $group: {
+          _id: '$orderItems.product',
+          soldUnits: { $sum: '$orderItems.quantity' }
+        }
+      }
+    ]);
+
+    // Fetch all products with populated categories
+    const products = await Product.find().populate('category').sort('name');
+
+    // Combine products with sold units
+    const stockData = products.map(p => {
+      const sales = salesData.find(s => s._id && s._id.toString() === p._id.toString());
+      return {
+        _id: p._id,
+        name: p.name,
+        image: p.images && p.images.length > 0 ? p.images[0] : "",
+        category: p.category ? p.category.name : "Uncategorized",
+        stock: p.stock,
+        soldUnits: sales ? sales.soldUnits : 0
+      };
+    });
+
+    new ApiResponse(200, stockData, 'Stock status compiled successfully.').send(res);
   } catch (error) {
     next(error);
   }

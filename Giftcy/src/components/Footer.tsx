@@ -62,8 +62,8 @@ export function Footer() {
               <li><Link to="/about" className="hover:text-gold">Our Story</Link></li>
               <li><Link to="/bulk" className="hover:text-gold">Bulk Orders</Link></li>
               <li><Link to="/contact" className="hover:text-gold">Contact</Link></li>
-              <li><Link to="/policies/shipping" className="hover:text-gold">Shipping Policy</Link></li>
-              <li><Link to="/policies/returns" className="hover:text-gold">Returns & Refund</Link></li>
+              <li><a href="/policies/shipping" className="hover:text-gold">Shipping Policy</a></li>
+              <li><a href="/policies/returns" className="hover:text-gold">Returns & Refund</a></li>
             </ul>
           </div>
 
@@ -88,8 +88,8 @@ export function Footer() {
         <div className="mt-14 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-muted-foreground">
           <p>© {new Date().getFullYear()} Giftcy. Crafted in India.</p>
           <div className="flex gap-4">
-            <Link to="/policies/privacy" className="hover:underline hover:text-gold">Privacy Policy</Link>
-            <Link to="/policies/terms" className="hover:underline hover:text-gold">Terms of Service</Link>
+            <a href="/policies/privacy" className="hover:underline hover:text-gold">Privacy Policy</a>
+            <a href="/policies/terms" className="hover:underline hover:text-gold">Terms of Service</a>
           </div>
           <p>Make Every Gift Premium.</p>
         </div>

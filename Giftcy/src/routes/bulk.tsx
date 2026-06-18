@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Building2, Crown, MessageCircle, Upload } from "lucide-react";
 import { apiClient } from "@/lib/apiClient";
 import { toast } from "sonner";
@@ -23,8 +23,12 @@ function Bulk() {
   const [occasion, setOccasion] = useState("");
   const [message, setMessage] = useState("");
   const [artworkUrl, setArtworkUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [fileName, setFileName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [waNumber, setWaNumber] = useState("919999999999");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -70,6 +74,7 @@ function Bulk() {
         setOccasion("");
         setMessage("");
         setArtworkUrl("");
+        setFileName("");
       } else {
         toast.error(res.message || "Failed to submit inquiry.");
       }
@@ -80,9 +85,36 @@ function Bulk() {
     }
   };
 
-  const mockUpload = () => {
-    setArtworkUrl("https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=800");
-    toast.success("Mock artwork logo uploaded successfully!");
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setFileName(files[0].name);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", files[0]);
+
+      const res = await apiClient.post("/media/upload-public", formData);
+      if (res?.success && res?.data?.url) {
+        setArtworkUrl(res.data.url);
+        toast.success("Artwork uploaded successfully!");
+      } else {
+        toast.error(res?.message || "Failed to upload artwork.");
+        setFileName("");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload artwork.");
+      setFileName("");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const triggerUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   return (
@@ -129,10 +161,19 @@ function Bulk() {
 
             <div className="sm:col-span-2">
               <label className="text-xs tracking-[0.2em] uppercase text-muted-foreground">Upload artwork / logo</label>
-              <div onClick={mockUpload} className="mt-2 border border-dashed border-border rounded-2xl p-8 text-center bg-background hover:border-gold transition cursor-pointer">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".png,.jpg,.jpeg,.pdf"
+                className="hidden"
+              />
+              <div onClick={triggerUpload} className="mt-2 border border-dashed border-border rounded-2xl p-8 text-center bg-background hover:border-gold transition cursor-pointer">
                 <Upload className="h-6 w-6 mx-auto text-gold" />
-                {artworkUrl ? (
-                  <div className="text-sm text-emerald-600 mt-2 font-medium">Artwork uploaded successfully! (logo_mockup.png)</div>
+                {uploading ? (
+                  <p className="mt-2 text-sm text-gold animate-pulse">Uploading file...</p>
+                ) : artworkUrl ? (
+                  <div className="text-sm text-emerald-600 mt-2 font-medium">Artwork uploaded successfully! ({fileName})</div>
                 ) : (
                   <>
                     <p className="mt-2 text-sm">Drop your file here or click to upload</p>

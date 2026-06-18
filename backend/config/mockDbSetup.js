@@ -14,9 +14,13 @@ import Wishlist from '../models/Wishlist.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+let isMocked = false;
+
 export const setupMockDb = () => {
+  if (isMocked) return;
+  isMocked = true;
   console.log('--------------------------------------------------');
-  console.log('WARNING: MongoDB is not running on 127.0.0.1:27017.');
+  console.log('WARNING: MongoDB is not running or connection was lost.');
   console.log('Initializing IN-MEMORY MOCK DATABASE fallback mode...');
   console.log('All changes will be saved in-memory and reset on server restart.');
   console.log('You can register users and login. Admin credentials initialized as:');
@@ -240,6 +244,7 @@ export const setupMockDb = () => {
     });
     memDb.User.push(admin);
 
+
     // 4. Coupon
     const coupon = makeDoc('Coupon', {
       code: 'WELCOME10',
@@ -291,6 +296,25 @@ export const setupMockDb = () => {
           craftDesc: "We work with master karigars and women-led ateliers across Gujarat and Rajasthan, supporting traditional craft while building modern, premium products.",
           storyImage: "https://images.unsplash.com/photo-1512909006721-3d6018887383?w=800",
           craftImage: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800"
+        }
+      },
+      {
+        key: "homepage_marquee",
+        value: [
+          "Free Shipping ₹999+",
+          "Reusable Fabric",
+          "Made in India",
+          "Bulk Pricing",
+          "Custom Printing"
+        ]
+      },
+      {
+        key: "homepage_wedding_promo",
+        value: {
+          title: "Perfect for Your Big Day",
+          description: "From shagun envelopes to trousseau packaging, our wedding collection transforms every moment of your celebration into a luxurious experience. Custom monograms, matching colours, and bulk pricing available.",
+          image: "",
+          ctaText: "Explore Wedding Collection"
         }
       }
     ];
@@ -352,6 +376,35 @@ export const setupMockDb = () => {
       }
     ];
     defaultInquiries.forEach(i => memDb.BulkInquiry.push(makeDoc('BulkInquiry', i)));
+
+    // 9. Collections
+    const defaultCollections = [
+      {
+        name: 'Wedding',
+        slug: 'wedding-gift-bags',
+        description: 'Premium drawstring potlis and shagun envelopes for wedding guest favors.',
+        image: ''
+      },
+      {
+        name: 'Festive',
+        slug: 'festive-bags',
+        description: 'Vibrant silk and brocade gift pouches for Diwali, Eid, and sangeet packaging.',
+        image: ''
+      },
+      {
+        name: 'Return Gifts',
+        slug: 'return-gift-bags',
+        description: 'Elegant reusable favor bags and carry bags for returning guest tokens.',
+        image: ''
+      },
+      {
+        name: 'Birthday',
+        slug: 'birthday',
+        description: 'Delicate pastel fabric pouches and boxes for birthday party favors.',
+        image: ''
+      }
+    ];
+    defaultCollections.forEach(c => memDb.Collection.push(makeDoc('Collection', c)));
   };
 
   seedDefaultData();

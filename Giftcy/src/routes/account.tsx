@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
 import { apiClient } from "@/lib/apiClient";
-import { User, ShoppingBag, Settings, LogOut, Clock, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from "lucide-react";
+import { User, ShoppingBag, Settings, LogOut, Clock, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/account")({
@@ -39,7 +39,7 @@ type Order = {
   createdAt: string;
 };
 
-type Tab = "overview" | "orders" | "profile";
+type Tab = "overview" | "orders" | "profile" | "support";
 
 function AccountPage() {
   const { user, loading: authLoading, signOut, refreshRole } = useAuth();
@@ -47,6 +47,8 @@ function AccountPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [supportMessages, setSupportMessages] = useState<any[]>([]);
+  const [loadingSupport, setLoadingSupport] = useState(false);
 
   // Profile Form States
   const [name, setName] = useState("");
@@ -57,8 +59,14 @@ function AccountPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      toast.error("Please sign in to access your account");
-      nav({ to: "/auth" });
+      const loggedOut = sessionStorage.getItem("loggedOut");
+      if (loggedOut) {
+        sessionStorage.removeItem("loggedOut");
+        nav({ to: "/" });
+      } else {
+        toast.error("Please sign in to access your account");
+        nav({ to: "/auth" });
+      }
     }
   }, [user, authLoading, nav]);
 
@@ -68,8 +76,23 @@ function AccountPage() {
       setName(user.name);
       setEmail(user.email);
       loadOrders();
+      loadSupportMessages();
     }
   }, [user]);
+
+  const loadSupportMessages = async () => {
+    setLoadingSupport(true);
+    try {
+      const response = await apiClient.get("/contact/my-messages");
+      if (response?.success && response?.data) {
+        setSupportMessages(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load support messages", error);
+    } finally {
+      setLoadingSupport(false);
+    }
+  };
 
   const loadOrders = async () => {
     setLoadingOrders(true);
@@ -179,6 +202,14 @@ function AccountPage() {
             }`}
           >
             <Settings className="h-4.5 w-4.5" /> Settings
+          </button>
+          <button
+            onClick={() => setTab("support")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition font-medium ${
+              tab === "support" ? "bg-foreground text-background shadow-soft" : "hover:bg-cream bg-background border border-border/40"
+            }`}
+          >
+            <Mail className="h-4.5 w-4.5" /> Support Inquiries
           </button>
 
           <div className="pt-4">
@@ -342,6 +373,75 @@ function AccountPage() {
                   {updatingProfile ? "Updating Profile..." : "Update Profile"}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* TAB: SUPPORT INQUIRIES */}
+          {tab === "support" && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div>
+                <h2 className="serif text-3xl font-semibold">Support Inquiries</h2>
+                <p className="text-sm text-muted-foreground mt-1">Review the status and responses of your contact submissions.</p>
+              </div>
+
+              {loadingSupport ? (
+                <div className="py-16 text-center text-muted-foreground">Loading support history...</div>
+              ) : supportMessages.length === 0 ? (
+                <div className="py-16 text-center border border-dashed border-border rounded-3xl">
+                  <p className="serif text-xl text-muted-foreground">You haven't submitted any support inquiries yet.</p>
+                  <Link to="/contact" className="mt-4 inline-flex px-6 py-2.5 rounded-full bg-gold text-white text-sm hover:bg-gold-soft transition">
+                    Contact Support
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {supportMessages.map((msg) => {
+                    const formattedDate = new Date(msg.createdAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                    return (
+                      <div key={msg._id} className="border border-border/80 rounded-2xl p-6 shadow-sm hover:shadow-soft bg-background transition space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/40 pb-3">
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block">Subject</span>
+                            <h3 className="serif text-base font-semibold text-gold">{msg.subject}</h3>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] text-muted-foreground font-mono">{formattedDate}</span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                              msg.status === "New" ? "bg-red-50 text-red-700 border-red-100" :
+                              msg.status === "Read" ? "bg-blue-50 text-blue-700 border-blue-100" :
+                              "bg-emerald-50 text-emerald-700 border-emerald-100"
+                            }`}>
+                              {msg.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase tracking-widest text-muted-foreground block font-semibold">Your Message</span>
+                          <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                        </div>
+
+                        {msg.adminReply ? (
+                          <div className="bg-cream/15 border border-gold/25 p-4 rounded-xl space-y-1">
+                            <span className="text-[10px] uppercase tracking-wider text-gold font-bold block">Response from Giftcy Concierge</span>
+                            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed italic">"{msg.adminReply}"</p>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground italic border-t border-border/30 pt-3">
+                            Awaiting concierge response. We typically respond within 24 hours.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

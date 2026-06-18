@@ -1,6 +1,7 @@
 import BulkInquiry from '../models/BulkInquiry.js';
 import ApiResponse from '../utils/apiResponse.js';
 import ApiError from '../utils/apiError.js';
+import { sendBulkInquiryEmail } from '../services/emailService.js';
 
 export const submitBulkInquiry = async (req, res, next) => {
   try {
@@ -19,6 +20,12 @@ export const submitBulkInquiry = async (req, res, next) => {
       message,
       logoUrl: logoUrl || null
     });
+
+    try {
+      await sendBulkInquiryEmail(inquiry);
+    } catch (emailError) {
+      console.error('Error sending bulk inquiry email:', emailError);
+    }
 
     new ApiResponse(201, inquiry, 'Your bulk inquiry was submitted successfully! Our B2B concierge will get back to you.').send(res);
   } catch (error) {

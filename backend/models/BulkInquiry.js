@@ -24,7 +24,6 @@ const bulkInquirySchema = new mongoose.Schema(
     },
     inquiryType: {
       type: String,
-      enum: ['Wedding', 'Corporate', 'Other'],
       default: 'Wedding',
     },
     quantity: {

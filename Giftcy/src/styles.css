@@ -1,6 +1,5 @@
-@import "tailwindcss" source(none);
+@import "tailwindcss";
 @import "tw-animate-css";
-@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -93,6 +92,8 @@
   h1, h2, h3, h4, .serif {
     font-family: var(--font-serif);
     letter-spacing: -0.01em;
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "lnum" 1;
   }
 }
 
@@ -113,5 +114,40 @@
   .hover-lift:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-soft);
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  /* Custom premium input & select styling */
+  .i {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #EADFC9;
+    border-radius: 0.75rem;
+    background-color: #FDFBF7;
+    color: var(--color-foreground);
+    font-size: 0.875rem;
+    outline: none;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .i:focus {
+    border-color: #c8956b;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(200, 149, 107, 0.15);
+  }
+
+  select.i {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23c8956b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+    padding-right: 2.5rem;
   }
 }

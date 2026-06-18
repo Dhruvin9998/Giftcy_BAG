@@ -140,8 +140,9 @@ function Home() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [settings, setSettings] = useState<any>(null);
-
   const [dbCollections, setDbCollections] = useState<any[]>([]);
+  const [banners, setBanners] = useState<any[]>([]);
+  const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -154,11 +155,23 @@ function Home() {
         if (colRes?.success && Array.isArray(colRes.data?.collections)) {
           setDbCollections(colRes.data.collections);
         }
+        const bannersRes = await apiClient.get("/banners");
+        if (bannersRes?.success && Array.isArray(bannersRes.data)) {
+          setBanners(bannersRes.data);
+        }
       } catch (err) {
-        console.error("Failed to load settings or collections", err);
+        console.error("Failed to load settings or collections or banners", err);
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveBannerIdx(prev => (prev + 1) % banners.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [banners]);
 
   const handleNewsletter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,6 +186,111 @@ function Home() {
   const heroTitle = settings?.homepage_hero?.title || "Make Every Gift Premium";
   const heroDesc = settings?.homepage_hero?.description || "Reusable fabric gift bags, handcrafted in India for weddings, festivals, and life's most precious moments.";
   const heroImage = settings?.homepage_hero?.image || hero;
+
+  const marqueeList = settings?.homepage_marquee || [
+    "Free Shipping ₹999+",
+    "Reusable Fabric",
+    "Made in India",
+    "Bulk Pricing",
+    "Custom Printing",
+  ];
+
+  const weddingPromoTitle = settings?.homepage_wedding_promo?.title || "Perfect for Your Big Day";
+  const weddingPromoDesc = settings?.homepage_wedding_promo?.description || "From shagun envelopes to trousseau packaging, our wedding collection transforms every moment of your celebration into a luxurious experience. Custom monograms, matching colours, and bulk pricing available.";
+  const weddingPromoImage = settings?.homepage_wedding_promo?.image || weddingShowcase;
+  const weddingPromoCta = settings?.homepage_wedding_promo?.ctaText || "Explore Wedding Collection";
+
+  const rawFestivals = settings?.homepage_festivals;
+  const festivalsList = Array.isArray(rawFestivals) && rawFestivals.length > 0
+    ? rawFestivals.map((rf: any, idx: number) => {
+        const fallback = festivals[idx] || festivals[0];
+        return {
+          name: rf.name || fallback.name,
+          subtitle: rf.subtitle || fallback.subtitle,
+          img: rf.img || fallback.img,
+          desc: rf.desc || fallback.desc
+        };
+      })
+    : festivals;
+
+  // Fabric Section
+  const fabricBadge = settings?.homepage_fabric?.badge || "The Giftcy Promise";
+  const fabricTitle = settings?.homepage_fabric?.title || "Crafted from the finest fabrics.";
+  const fabricDesc = settings?.homepage_fabric?.description || "Each Giftcy bag is sewn from premium reusable fabric — soft to the touch, beautifully finished, and made to be loved long after the gift is opened.";
+  const fabricImage = settings?.homepage_fabric?.image || fabric;
+  const rawFabricFeatures = settings?.homepage_fabric?.features;
+  const defaultFeatures = [
+    { title: "Sustainable", desc: "100% reusable, plastic-free packaging." },
+    { title: "Hand-Finished", desc: "Detailed stitching, premium hardware." },
+    { title: "Pan-India", desc: "Fast shipping with free returns ₹999+." },
+    { title: "Loved by 50k+", desc: "Trusted across weddings & gifting." }
+  ];
+  const fabricFeaturesList = Array.isArray(rawFabricFeatures) && rawFabricFeatures.length > 0
+    ? rawFabricFeatures.map((rf: any, idx: number) => {
+        const fallback = defaultFeatures[idx] || defaultFeatures[0];
+        return {
+          title: rf.title || fallback.title,
+          desc: rf.desc || fallback.desc
+        };
+      })
+    : defaultFeatures;
+
+  // Testimonials Section
+  const testimonialsBadge = settings?.homepage_testimonials?.badge || "Loved by gifters";
+  const testimonialsTitle = settings?.homepage_testimonials?.title || "Kind words, kept close.";
+  const rawTestimonials = settings?.homepage_testimonials?.list;
+  const testimonialsList = Array.isArray(rawTestimonials) && rawTestimonials.length > 0
+    ? rawTestimonials.map((rt: any, idx: number) => {
+        const fallback = testimonials[idx] || testimonials[0];
+        return {
+          q: rt.quote || fallback.q,
+          a: rt.author || fallback.a,
+          role: rt.role || fallback.role,
+          stars: rt.stars || fallback.stars || 5
+        };
+      })
+    : testimonials;
+
+  // Instagram Section
+  const instagramBadge = settings?.homepage_instagram?.badge || "Follow Us";
+  const instagramTitle = settings?.homepage_instagram?.title || "@giftcy.in";
+  const instagramDesc = settings?.homepage_instagram?.description || "Tag us in your gifting moments for a chance to be featured.";
+  const instagramBtnText = settings?.homepage_instagram?.buttonText || "Follow on Instagram";
+  const instagramBtnUrl = settings?.homepage_instagram?.buttonUrl || "https://instagram.com/giftcy.in";
+  const rawInstagramImages = settings?.homepage_instagram?.images;
+  const instagramImagesList = Array.isArray(rawInstagramImages) && rawInstagramImages.length > 0
+    ? rawInstagramImages.map((ri: any, idx: number) => {
+        const fallback = instaImages[idx] || instaImages[0];
+        return {
+          src: ri.url || fallback.src,
+          likes: ri.likes || fallback.likes || 0
+        };
+      })
+    : instaImages;
+
+  // Trust Badges Section
+  const badgeIcons: { [key: string]: any } = {
+    Package, Leaf, Truck, Lock, RotateCcw, Shield, Sparkles, Heart, Star, Crown, Palette, Users
+  };
+  const rawBadges = settings?.homepage_badges;
+  const trustBadgesList = Array.isArray(rawBadges) && rawBadges.length > 0
+    ? rawBadges.map((rb: any, idx: number) => {
+        const fallback = trustBadges[idx] || trustBadges[0];
+        const IconComponent = badgeIcons[rb.icon] || fallback.icon;
+        return {
+          icon: IconComponent,
+          label: rb.label || fallback.label,
+          desc: rb.desc || fallback.desc
+        };
+      })
+    : trustBadges;
+
+  // B2B CTA Section
+  const ctaSubtitle = settings?.homepage_cta?.subtitle || "Bulk & Custom";
+  const ctaTitle = settings?.homepage_cta?.title || "Weddings, brands, and grand occasions.";
+  const ctaDesc = settings?.homepage_cta?.description || "Custom-printed bags, monograms, and bulk pricing for 50–50,000 units. We make your gifting unforgettable.";
+  const ctaBtnText = settings?.homepage_cta?.buttonText || "Start a Bulk Inquiry";
+  const ctaBtnUrl = settings?.homepage_cta?.buttonUrl || "/bulk";
 
   const homepageStats = settings?.homepage_stats || [
     { value: "50k+", label: "Bags gifted" },
@@ -202,33 +320,41 @@ function Home() {
 
         switch (section.id) {
           case "hero":
+            const hasBanners = banners.length > 0;
+            const currentTitle = hasBanners ? banners[activeBannerIdx].title : heroTitle;
+            const currentSubtitle = hasBanners ? banners[activeBannerIdx].subtitle : heroDesc;
+            const currentImage = hasBanners ? banners[activeBannerIdx].image : heroImage;
+            const currentCtaText = hasBanners ? (banners[activeBannerIdx].ctaText || "Shop Now") : "Shop the Collection";
+            const currentCtaLink = hasBanners ? (banners[activeBannerIdx].ctaLink || "/shop") : "/shop";
+
             return (
               <section key="hero" className="relative overflow-hidden">
                 <div className="mx-auto max-w-7xl px-5 lg:px-10 pt-10 lg:pt-20 pb-20 lg:pb-32 grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
                   <motion.div
+                    key={`hero-content-${activeBannerIdx}`}
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.9, ease: [0.2, 0.7, 0.2, 1] }}
+                    transition={{ duration: 0.8, ease: [0.2, 0.7, 0.2, 1] }}
                     className="lg:col-span-6"
                   >
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background/60 backdrop-blur">
                       <Sparkles className="h-3.5 w-3.5 text-gold" />
-                      <span className="text-[11px] tracking-[0.2em] uppercase text-muted-foreground">
-                        {heroBadge}
+                      <span className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground">
+                        {hasBanners ? `Featured Slide #${activeBannerIdx + 1}` : heroBadge}
                       </span>
                     </div>
                     <h1 className="serif text-5xl sm:text-6xl lg:text-7xl xl:text-8xl mt-6 leading-[0.95] text-balance">
-                      {heroTitle}
+                      {currentTitle}
                     </h1>
                     <p className="mt-6 text-base lg:text-lg text-muted-foreground max-w-lg leading-relaxed">
-                      {heroDesc}
+                      {currentSubtitle}
                     </p>
                     <div className="mt-9 flex flex-wrap gap-3">
                       <Link
-                        to="/shop"
+                        to={currentCtaLink}
                         className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 transition text-sm tracking-wide"
                       >
-                        Shop the Collection
+                        {currentCtaText}
                         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </Link>
                       <Link
@@ -250,20 +376,37 @@ function Home() {
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.96 }}
+                    key={`hero-img-${activeBannerIdx}`}
+                    initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 1.1, ease: [0.2, 0.7, 0.2, 1] }}
-                    className="lg:col-span-6 relative"
+                    transition={{ duration: 0.9, ease: [0.2, 0.7, 0.2, 1] }}
+                    className="lg:col-span-6 relative animate-in fade-in zoom-in-95 duration-700"
                   >
                     <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden shadow-luxury">
                       <img
-                        src={heroImage}
+                        src={currentImage}
                         alt="Giftcy luxury fabric gift bag"
                         width={1600}
                         height={1200}
                         className="h-full w-full object-cover"
                       />
                     </div>
+
+                    {/* Slide Selector Indicators */}
+                    {hasBanners && banners.length > 1 && (
+                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2.5 bg-black/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 z-10">
+                        {banners.map((_, dotIdx) => (
+                          <button
+                            key={dotIdx}
+                            onClick={() => setActiveBannerIdx(dotIdx)}
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              dotIdx === activeBannerIdx ? "w-6 bg-white" : "w-2 bg-white/40 hover:bg-white/75"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+
                     <motion.div
                       animate={{ y: [0, -12, 0] }}
                       transition={{
@@ -292,13 +435,7 @@ function Home() {
             return (
               <section key="marquee" className="border-y border-border bg-cream py-6">
                 <div className="mx-auto max-w-7xl px-5 lg:px-10 flex flex-wrap items-center justify-around gap-6 text-xs tracking-[0.2em] uppercase text-muted-foreground">
-                  {[
-                    "Free Shipping ₹999+",
-                    "Reusable Fabric",
-                    "Made in India",
-                    "Bulk Pricing",
-                    "Custom Printing",
-                  ].map((t) => (
+                  {marqueeList.map((t: string) => (
                     <span key={t} className="flex items-center gap-2">
                       <span className="h-1 w-1 rounded-full bg-gold" /> {t}
                     </span>
@@ -308,18 +445,19 @@ function Home() {
             );
 
           case "collections":
+            const blankPlaceholder = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='400' viewBox='0 0 300 400'><rect width='100%' height='100%' fill='%23F6F4EE'/></svg>";
             const activeCollections = dbCollections.length > 0
               ? dbCollections.map((col) => ({
                   name: col.name,
-                  img: col.image || wedding,
+                  img: col.image || blankPlaceholder,
                   count: col.productCount || 0,
                   slug: col.slug,
                 }))
               : [
-                  { name: "Wedding", img: wedding, count: 42, slug: "wedding-gift-bags" },
-                  { name: "Festive", img: festive, count: 28, slug: "festive-bags" },
-                  { name: "Return Gifts", img: ret, count: 36, slug: "return-gift-bags" },
-                  { name: "Birthday", img: birthday, count: 22, slug: "birthday" },
+                  { name: "Wedding", img: blankPlaceholder, count: 0, slug: "wedding-gift-bags" },
+                  { name: "Festive", img: blankPlaceholder, count: 0, slug: "festive-bags" },
+                  { name: "Return Gifts", img: blankPlaceholder, count: 0, slug: "return-gift-bags" },
+                  { name: "Birthday", img: blankPlaceholder, count: 0, slug: "birthday" },
                 ];
 
             return (
@@ -407,7 +545,7 @@ function Home() {
                   >
                     <div className="aspect-[4/5] rounded-[2rem] overflow-hidden shadow-luxury">
                       <img
-                        src={weddingShowcase}
+                        src={weddingPromoImage}
                         alt="Luxury wedding gift bags collection"
                         loading="lazy"
                         className="h-full w-full object-cover"
@@ -446,13 +584,10 @@ function Home() {
                       Wedding Collection
                     </p>
                     <h2 className="serif text-4xl lg:text-5xl mt-3 text-balance">
-                      Perfect for Your Big Day
+                      {weddingPromoTitle}
                     </h2>
                     <p className="mt-5 text-muted-foreground leading-relaxed max-w-lg">
-                      From shagun envelopes to trousseau packaging, our wedding
-                      collection transforms every moment of your celebration into a
-                      luxurious experience. Custom monograms, matching colours, and bulk
-                      pricing available.
+                      {weddingPromoDesc}
                     </p>
 
                     <div className="mt-8 space-y-5">
@@ -475,7 +610,7 @@ function Home() {
                       to="/shop"
                       className="group mt-10 inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 transition text-sm tracking-wide"
                     >
-                      Explore Wedding Collection
+                      {weddingPromoCta}
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </motion.div>
@@ -501,7 +636,7 @@ function Home() {
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-                  {festivals.map((f, i) => (
+                  {festivalsList.map((f, i) => (
                     <motion.div
                       key={f.name}
                       initial={{ opacity: 0, y: 30 }}
@@ -556,7 +691,7 @@ function Home() {
                     className="aspect-[4/5] rounded-[2rem] overflow-hidden shadow-soft"
                   >
                     <img
-                      src={fabric}
+                      src={fabricImage}
                       alt="Premium fabric detail"
                       loading="lazy"
                       className="h-full w-full object-cover"
@@ -564,51 +699,37 @@ function Home() {
                   </motion.div>
                   <div>
                     <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
-                      The Giftcy Promise
+                      {fabricBadge}
                     </p>
                     <h2 className="serif text-4xl lg:text-5xl mt-3">
-                      Crafted from the finest fabrics.
+                      {fabricTitle}
                     </h2>
                     <p className="mt-5 text-muted-foreground leading-relaxed max-w-lg">
-                      Each Giftcy bag is sewn from premium reusable fabric — soft to the
-                      touch, beautifully finished, and made to be loved long after the
-                      gift is opened.
+                      {fabricDesc}
                     </p>
                     <div className="mt-10 grid sm:grid-cols-2 gap-6">
-                      {[
-                        {
-                          i: Leaf,
-                          t: "Sustainable",
-                          d: "100% reusable, plastic-free packaging.",
-                        },
-                        {
-                          i: Sparkles,
-                          t: "Hand-Finished",
-                          d: "Detailed stitching, premium hardware.",
-                        },
-                        {
-                          i: Truck,
-                          t: "Pan-India",
-                          d: "Fast shipping with free returns ₹999+.",
-                        },
-                        {
-                          i: Heart,
-                          t: "Loved by 50k+",
-                          d: "Trusted across weddings & gifting.",
-                        },
-                      ].map(({ i: Icon, t, d }) => (
-                        <div key={t} className="flex gap-3">
-                          <div className="h-10 w-10 shrink-0 rounded-full bg-background border border-border flex items-center justify-center text-gold">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="font-medium">{t}</div>
-                            <div className="text-sm text-muted-foreground mt-0.5">
-                              {d}
+                      {fabricFeaturesList.map(({ title, desc }) => {
+                        let Icon = Sparkles;
+                        const tLower = title.toLowerCase();
+                        if (tLower.includes("sustain") || tLower.includes("eco") || tLower.includes("green") || tLower.includes("leaf")) Icon = Leaf;
+                        else if (tLower.includes("hand") || tLower.includes("stitch") || tLower.includes("sparkle") || tLower.includes("craft")) Icon = Sparkles;
+                        else if (tLower.includes("shipping") || tLower.includes("deliv") || tLower.includes("truck") || tLower.includes("india") || tLower.includes("pan")) Icon = Truck;
+                        else if (tLower.includes("love") || tLower.includes("heart") || tLower.includes("trust") || tLower.includes("happy") || tLower.includes("50k")) Icon = Heart;
+
+                        return (
+                          <div key={title} className="flex gap-3">
+                            <div className="h-10 w-10 shrink-0 rounded-full bg-background border border-border flex items-center justify-center text-gold">
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{title}</div>
+                              <div className="text-sm text-muted-foreground mt-0.5">
+                                {desc}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -620,14 +741,14 @@ function Home() {
               <section key="testimonials" className="mx-auto max-w-7xl px-5 lg:px-10 py-20 lg:py-28">
                 <div className="text-center mb-14">
                   <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
-                    Loved by gifters
+                    {testimonialsBadge}
                   </p>
                   <h2 className="serif text-4xl lg:text-5xl mt-3">
-                    Kind words, kept close.
+                    {testimonialsTitle}
                   </h2>
                 </div>
                 <div className="grid lg:grid-cols-3 gap-6">
-                  {testimonials.map((t, i) => (
+                  {testimonialsList.map((t, i) => (
                     <motion.figure
                       key={t.a}
                       initial={{ opacity: 0, y: 24 }}
@@ -665,20 +786,20 @@ function Home() {
                 <div className="mx-auto max-w-7xl px-5 lg:px-10">
                   <div className="text-center mb-14">
                     <p className="text-[11px] tracking-[0.25em] uppercase text-gold">
-                      Follow Us
+                      {instagramBadge}
                     </p>
                     <h2 className="serif text-4xl lg:text-5xl mt-3">
-                      @giftcy.in
+                      {instagramTitle}
                     </h2>
                     <p className="mt-3 text-muted-foreground text-sm">
-                      Tag us in your gifting moments for a chance to be featured.
+                      {instagramDesc}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
-                    {instaImages.map((img, i) => (
+                    {instagramImagesList.map((img, i) => (
                       <motion.a
                         key={i}
-                        href="https://instagram.com/giftcy.in"
+                        href={instagramBtnUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -705,13 +826,13 @@ function Home() {
                   </div>
                   <div className="text-center mt-8">
                     <a
-                      href="https://instagram.com/giftcy.in"
+                      href={instagramBtnUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-foreground/20 hover:border-foreground transition text-sm tracking-wide"
                     >
                       <Instagram className="h-4 w-4" />
-                      Follow on Instagram
+                      {instagramBtnText}
                     </a>
                   </div>
                 </div>
@@ -722,7 +843,7 @@ function Home() {
             return (
               <section key="badges" className="mx-auto max-w-7xl px-5 lg:px-10 py-16 lg:py-20">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6 lg:gap-4">
-                  {trustBadges.map((badge, i) => (
+                  {trustBadgesList.map((badge, i) => (
                     <motion.div
                       key={badge.label}
                       initial={{ opacity: 0, y: 20 }}
@@ -808,20 +929,19 @@ function Home() {
                   />
                   <div className="relative">
                     <p className="text-[11px] tracking-[0.25em] uppercase text-gold-soft">
-                      Bulk & Custom
+                      {ctaSubtitle}
                     </p>
                     <h2 className="serif text-4xl lg:text-6xl mt-4 text-balance">
-                      Weddings, brands, and grand occasions.
+                      {ctaTitle}
                     </h2>
                     <p className="mt-5 text-background/70 max-w-xl mx-auto">
-                      Custom-printed bags, monograms, and bulk pricing for 50–50,000
-                      units. We make your gifting unforgettable.
+                      {ctaDesc}
                     </p>
                     <Link
-                      to="/bulk"
+                      to={ctaBtnUrl}
                       className="mt-8 inline-flex items-center gap-2 px-8 py-4 rounded-full bg-background text-foreground hover:bg-background/90 text-sm tracking-wide"
                     >
-                      Start a Bulk Inquiry <ArrowRight className="h-4 w-4" />
+                      {ctaBtnText} <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>
                 </div>

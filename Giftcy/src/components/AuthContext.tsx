@@ -7,18 +7,20 @@ export type AuthUser = {
   email: string;
   role: string;
   isVerified: boolean;
+  phone?: string;
+  address?: string;
 };
 
-type SignInResult = { error?: string; requiresVerification?: boolean; email?: string };
+type SignInResult = { error?: string; requiresVerification?: boolean; email?: string; emailFailed?: boolean; user?: AuthUser };
 
 type AuthCtx = {
   user: AuthUser | null;
   isAdmin: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<SignInResult>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error?: string; emailFailed?: boolean; message?: string }>;
   verifyOTP: (email: string, otp: string) => Promise<{ error?: string }>;
-  resendOTP: (email: string) => Promise<{ error?: string; message?: string }>;
+  resendOTP: (email: string) => Promise<{ error?: string; message?: string; emailFailed?: boolean }>;
   googleSignIn: (credential: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   claimFirstAdmin: () => Promise<{ ok: boolean; message: string }>;
@@ -43,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: u.email,
           role: u.role,
           isVerified: u.isVerified,
+          phone: u.phone,
+          address: u.address,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
@@ -50,7 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOutLocal();
       }
     } catch (error) {
-      signOutLocal();
+      console.error("Token verification failed", error);
+      localStorage.removeItem("token");
     } finally {
       setLoading(false);
     }
@@ -76,12 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiClient.post("/auth/login", { email, password });
       if (response?.success && response?.data) {
-        // Check if user needs OTP verification
-        if (response.data.requiresVerification) {
-          return { requiresVerification: true, email: response.data.email };
+        const { token, user: u, requiresVerification, emailFailed } = response.data;
+        if (requiresVerification) {
+          return { requiresVerification: true, email, emailFailed: !!emailFailed };
         }
-
-        const { token, user: u } = response.data;
         localStorage.setItem("token", token);
         const mappedUser: AuthUser = {
           id: u._id,
@@ -89,10 +92,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: u.email,
           role: u.role,
           isVerified: u.isVerified,
+          phone: u.phone,
+          address: u.address,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
-        return {};
+        return { user: mappedUser };
       }
       return { error: response.message || "Failed to sign in" };
     } catch (error: any) {
@@ -104,7 +109,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiClient.post("/auth/signup", { email, password, name: fullName });
       if (response?.success) {
-        return {}; // Signup success, needs OTP verification
+        return { 
+          emailFailed: !!response.data?.emailFailed, 
+          message: response.message 
+        }; // Signup success, return mail send status
       }
       return { error: response.message || "Failed to sign up" };
     } catch (error: any) {
@@ -124,6 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: u.email,
           role: u.role,
           isVerified: u.isVerified,
+          phone: u.phone,
+          address: u.address,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
@@ -139,7 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiClient.post("/auth/resend-otp", { email });
       if (response?.success) {
-        return { message: response.message || "A new verification code has been sent." };
+        return { 
+          message: response.message || "A new verification code has been sent.",
+          emailFailed: !!response.data?.emailFailed
+        };
       }
       return { error: response.message || "Failed to resend code" };
     } catch (error: any) {
@@ -159,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: u.email,
           role: u.role,
           isVerified: u.isVerified,
+          phone: u.phone,
+          address: u.address,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
@@ -172,6 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     signOutLocal();
+    sessionStorage.setItem("loggedOut", "true");
+    window.location.href = "/";
   };
 
   const claimFirstAdmin = async () => {
@@ -185,6 +202,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: u.email,
           role: u.role,
           isVerified: u.isVerified,
+          phone: u.phone,
+          address: u.address,
         });
         setIsAdmin(true);
         return { ok: true, message: "You are now an admin!" };
