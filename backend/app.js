@@ -36,6 +36,9 @@ import { createOrder, verifyRazorpayPayment } from './controllers/orderControlle
 
 const app = express();
 
+// Enable trust proxy to correctly identify client IPs behind reverse proxies (Render, Heroku, etc.)
+app.set('trust proxy', 1);
+
 // 1. Logger Middleware (morgan)
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
