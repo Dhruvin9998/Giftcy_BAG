@@ -1,4 +1,8 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5098/api/v1";
+let BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5098/api/v1";
+
+if (BASE_URL && !BASE_URL.endsWith("/api/v1") && !BASE_URL.endsWith("/api/v1/")) {
+  BASE_URL = BASE_URL.endsWith("/") ? `${BASE_URL}api/v1` : `${BASE_URL}/api/v1`;
+}
 
 interface RequestOptions extends RequestInit {
   token?: string | null;
