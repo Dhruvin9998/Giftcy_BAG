@@ -140,42 +140,29 @@ function Home() {
   const { products: displayProducts, loading } = useProducts();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
-  const [settings, setSettings] = useState<any>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_settings");
-        return cached ? JSON.parse(cached) : null;
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
-  const [dbCollections, setDbCollections] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_collections");
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
-  const [banners, setBanners] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_banners");
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [settings, setSettings] = useState<any>(null);
+  const [dbCollections, setDbCollections] = useState<any[]>([]);
+  const [banners, setBanners] = useState<any[]>([]);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
   useEffect(() => {
+    // 1. Restore from cache on mount (synchronously before fetching)
+    if (typeof window !== "undefined") {
+      try {
+        const cachedSettings = localStorage.getItem("giftcy_settings");
+        if (cachedSettings) setSettings(JSON.parse(cachedSettings));
+        
+        const cachedCols = localStorage.getItem("giftcy_collections");
+        if (cachedCols) setDbCollections(JSON.parse(cachedCols));
+        
+        const cachedBanners = localStorage.getItem("giftcy_banners");
+        if (cachedBanners) setBanners(JSON.parse(cachedBanners));
+      } catch (e) {
+        console.error("Failed to restore settings from cache", e);
+      }
+    }
+
+    // 2. Fetch fresh data
     (async () => {
       try {
         const res = await apiClient.get("/settings");
