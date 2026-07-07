@@ -8,6 +8,51 @@ interface RequestOptions extends RequestInit {
   token?: string | null;
 }
 
+function cleanUrls(obj: any): any {
+  if (!obj) return obj;
+  
+  if (typeof obj === "string") {
+    let cleaned = obj;
+    const isProduction = typeof window !== "undefined" && 
+      !window.location.hostname.includes("localhost") && 
+      !window.location.hostname.includes("127.0.0.1");
+      
+    const apiUrl = import.meta.env.VITE_API_URL || "";
+    const backendBase = apiUrl ? apiUrl.replace(/\/api\/v1\/?$/, "") : "";
+
+    // 1. If we are on a production domain, rewrite localhost URLs to point to the active backend domain
+    if (isProduction && (cleaned.includes("localhost:5098") || cleaned.includes("127.0.0.1:5098"))) {
+      if (backendBase) {
+        cleaned = cleaned.replace(/^https?:\/\/(localhost|127\.0\.0\.1):5098/, backendBase);
+      }
+    }
+    
+    // 2. If the current site is loaded over HTTPS, upgrade our backend's HTTP URLs to HTTPS
+    if (typeof window !== "undefined" && window.location.protocol === "https:") {
+      if (backendBase && cleaned.startsWith("http://") && cleaned.includes(backendBase.replace(/^https?:\/\//, ""))) {
+        cleaned = cleaned.replace(/^http:\/\//, "https://");
+      }
+    }
+    return cleaned;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUrls);
+  }
+  
+  if (typeof obj === "object") {
+    const cleanedObj: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        cleanedObj[key] = cleanUrls(obj[key]);
+      }
+    }
+    return cleanedObj;
+  }
+  
+  return obj;
+}
+
 async function request(method: string, endpoint: string, body?: any, options: RequestOptions = {}) {
   const token = localStorage.getItem("token");
   
@@ -40,6 +85,8 @@ async function request(method: string, endpoint: string, body?: any, options: Re
   } else {
     data = { message: await response.text() };
   }
+
+  data = cleanUrls(data);
 
   if (!response.ok) {
     throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
