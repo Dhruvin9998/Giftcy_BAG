@@ -23,6 +23,32 @@ export type DBProduct = {
   priority?: number;
 };
 
+const getCleanImageUrl = (url: string | undefined): string => {
+  if (!url) return "";
+  
+  let cleaned = url;
+  
+  // 1. If we are on a production domain, rewrite localhost URLs to point to the active backend domain
+  const isProduction = typeof window !== "undefined" && 
+    !window.location.hostname.includes("localhost") && 
+    !window.location.hostname.includes("127.0.0.1");
+    
+  if (isProduction && (cleaned.includes("localhost:5098") || cleaned.includes("127.0.0.1:5098"))) {
+    const apiUrl = import.meta.env.VITE_API_URL || "";
+    if (apiUrl) {
+      const backendBase = apiUrl.replace(/\/api\/v1\/?$/, "");
+      cleaned = cleaned.replace(/^https?:\/\/(localhost|127\.0\.0\.1):5098/, backendBase);
+    }
+  }
+  
+  // 2. If the current site is loaded over HTTPS, upgrade any http:// URLs to https://
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && cleaned.startsWith("http://")) {
+    cleaned = cleaned.replace(/^http:\/\//, "https://");
+  }
+  
+  return cleaned;
+};
+
 export const dbToProduct = (d: DBProduct): Product => {
   if (!d || typeof d !== "object" || !d._id) {
     const fallbackImage = staticProducts[0]?.image || "";
@@ -46,6 +72,11 @@ export const dbToProduct = (d: DBProduct): Product => {
   const comparePriceVal = d.compareAtPrice !== undefined && d.compareAtPrice !== null ? Number(d.compareAtPrice) : priceVal;
   const fallbackImage = staticProducts[0]?.image || "";
 
+  const cleanedImage = getCleanImageUrl(d.images?.[0]) || fallbackImage;
+  const cleanedImages = d.images && d.images.length > 0 
+    ? (d.images.map(img => getCleanImageUrl(img)).filter(Boolean) as string[])
+    : [cleanedImage];
+
   return {
     id: d._id,
     slug: d.slug || "",
@@ -54,8 +85,8 @@ export const dbToProduct = (d: DBProduct): Product => {
     occasion: d.occasion || "Wedding",
     price: isNaN(priceVal) ? 0 : priceVal,
     mrp: isNaN(comparePriceVal) ? priceVal : comparePriceVal,
-    image: d.images?.[0] || fallbackImage,
-    images: d.images && d.images.length > 0 ? d.images : [d.images?.[0] || fallbackImage],
+    image: cleanedImage,
+    images: cleanedImages,
     badge: d.isBestSeller ? "Bestseller" : d.isNewArrival ? "New" : undefined,
     colors: ["Ivory", "Gold", "Blush"],
     sizes: ["S", "M", "L"],

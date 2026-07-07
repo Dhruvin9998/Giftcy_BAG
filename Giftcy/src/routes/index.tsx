@@ -30,6 +30,7 @@ import festivalEid from "@/assets/festival-eid.png";
 import festivalChristmas from "@/assets/festival-christmas.png";
 import { useProducts } from "@/lib/useProducts";
 import { ProductCard } from "@/components/ProductCard";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/apiClient";
 
@@ -136,7 +137,7 @@ const instaImages = [
 ];
 
 function Home() {
-  const { products: displayProducts } = useProducts();
+  const { products: displayProducts, loading } = useProducts();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [settings, setSettings] = useState<any>(null);
@@ -523,11 +524,22 @@ function Home() {
                   <div className="gold-divider mx-auto mt-6 w-24" />
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-8">
-                  {displayProducts
-                    .slice(0, 4)
-                    .map((p, i) => (
-                      <ProductCard key={p.slug} product={p} index={i} />
-                    ))}
+                  {loading
+                    ? Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="space-y-4">
+                          <Skeleton className="aspect-[4/5] w-full rounded-2xl" />
+                          <div className="space-y-2 px-1">
+                            <Skeleton className="h-3 w-16" />
+                            <Skeleton className="h-5 w-3/4" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                        </div>
+                      ))
+                    : displayProducts
+                        .slice(0, 4)
+                        .map((p, i) => (
+                          <ProductCard key={p.slug} product={p} index={i} />
+                        ))}
                 </div>
               </section>
             );

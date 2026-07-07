@@ -21,8 +21,9 @@ export const uploadMedia = async (req, res, next) => {
       return next(new ApiError(400, 'Please upload a file'));
     }
 
-    const protocol = req.protocol;
     const host = req.get('host');
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    const protocol = isLocal ? (req.headers['x-forwarded-proto'] || req.protocol) : 'https';
     const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
 
     new ApiResponse(
@@ -56,8 +57,9 @@ export const getAllMedia = async (req, res, next) => {
       files.map(async (filename) => {
         const filePath = path.join(uploadDir, filename);
         const stats = await fs.promises.stat(filePath);
-        const protocol = req.protocol;
         const host = req.get('host');
+        const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+        const protocol = isLocal ? (req.headers['x-forwarded-proto'] || req.protocol) : 'https';
         const fileUrl = `${protocol}://${host}/uploads/${filename}`;
 
         return {
