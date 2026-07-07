@@ -36,7 +36,17 @@ function Shop() {
   const [maxPrice, setMaxPrice] = useState<number>(1000);
   const [sort, setSort] = useState<string>("featured");
   const { products, loading } = useProducts();
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("giftcy_categories");
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
 
   useEffect(() => {
     (async () => {
@@ -44,6 +54,9 @@ function Shop() {
         const res = await apiClient.get("/categories");
         if (res?.success && Array.isArray(res.data)) {
           setCategories(res.data);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("giftcy_categories", JSON.stringify(res.data));
+          }
         }
       } catch (err) {
         console.error("Failed to load categories in shop", err);

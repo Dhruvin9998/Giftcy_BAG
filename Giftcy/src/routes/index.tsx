@@ -140,9 +140,39 @@ function Home() {
   const { products: displayProducts, loading } = useProducts();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
-  const [settings, setSettings] = useState<any>(null);
-  const [dbCollections, setDbCollections] = useState<any[]>([]);
-  const [banners, setBanners] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("giftcy_settings");
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [dbCollections, setDbCollections] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("giftcy_collections");
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [banners, setBanners] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("giftcy_banners");
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
   useEffect(() => {
@@ -151,14 +181,23 @@ function Home() {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data) {
           setSettings(res.data);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("giftcy_settings", JSON.stringify(res.data));
+          }
         }
         const colRes = await apiClient.get("/collections");
         if (colRes?.success && Array.isArray(colRes.data?.collections)) {
           setDbCollections(colRes.data.collections);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("giftcy_collections", JSON.stringify(colRes.data.collections));
+          }
         }
         const bannersRes = await apiClient.get("/banners");
         if (bannersRes?.success && Array.isArray(bannersRes.data)) {
           setBanners(bannersRes.data);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("giftcy_banners", JSON.stringify(bannersRes.data));
+          }
         }
       } catch (err) {
         console.error("Failed to load settings or collections or banners", err);
@@ -524,7 +563,7 @@ function Home() {
                   <div className="gold-divider mx-auto mt-6 w-24" />
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-8">
-                  {loading
+                  {loading && !displayProducts.some(p => p.id)
                     ? Array.from({ length: 4 }).map((_, i) => (
                         <div key={i} className="space-y-4">
                           <Skeleton className="aspect-[4/5] w-full rounded-2xl" />

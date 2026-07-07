@@ -96,8 +96,28 @@ export const dbToProduct = (d: DBProduct): Product => {
 };
 
 export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true }) {
-  const [list, setList] = useState<Product[]>(staticProducts);
-  const [dbList, setDbList] = useState<DBProduct[]>([]);
+  const [list, setList] = useState<Product[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("giftcy_products_list");
+        return cached ? JSON.parse(cached) : staticProducts;
+      } catch (e) {
+        return staticProducts;
+      }
+    }
+    return staticProducts;
+  });
+  const [dbList, setDbList] = useState<DBProduct[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("giftcy_products_db_list");
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -112,6 +132,11 @@ export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true 
         const dbSlugs = new Set(rows.map((r) => r.slug));
         const merged = [...mapped, ...staticProducts.filter((p) => !dbSlugs.has(p.slug))];
         setList(merged);
+        
+        if (typeof window !== "undefined") {
+          localStorage.setItem("giftcy_products_db_list", JSON.stringify(rows));
+          localStorage.setItem("giftcy_products_list", JSON.stringify(merged));
+        }
       }
     } catch (err) {
       console.error("Error loading products", err);
