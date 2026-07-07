@@ -66,33 +66,50 @@ async function request(method: string, endpoint: string, body?: any, options: Re
 
   const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
   
+  // Set up request timeout (4s for GET to prevent SSR timeout, 60s for other methods like uploads)
+  const isGet = method.toUpperCase() === "GET";
+  const timeoutMs = isGet ? 4000 : 60000;
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   const config: RequestInit = {
     ...options,
     method,
     headers,
+    signal: controller.signal,
   };
 
   if (body) {
     config.body = body instanceof FormData ? body : JSON.stringify(body);
   }
 
-  const response = await fetch(url, config);
+  try {
+    const response = await fetch(url, config);
+    clearTimeout(timeoutId);
 
-  let data;
-  const contentType = response.headers.get("Content-Type") || "";
-  if (contentType.includes("application/json")) {
-    data = await response.json();
-  } else {
-    data = { message: await response.text() };
+    let data;
+    const contentType = response.headers.get("Content-Type") || "";
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      data = { message: await response.text() };
+    }
+
+    data = cleanUrls(data);
+
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return data;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
   }
-
-  data = cleanUrls(data);
-
-  if (!response.ok) {
-    throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
-  }
-
-  return data;
 }
 
 export const apiClient = {
