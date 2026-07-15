@@ -36,19 +36,20 @@ function Shop() {
   const [maxPrice, setMaxPrice] = useState<number>(1000);
   const [sort, setSort] = useState<string>("featured");
   const { products, loading } = useProducts();
-  const [categories, setCategories] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_categories");
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
+    // 1. Restore from cache on mount
+    if (typeof window !== "undefined") {
+      try {
+        const cachedCats = localStorage.getItem("giftcy_categories");
+        if (cachedCats) setCategories(JSON.parse(cachedCats));
+      } catch (e) {
+        console.error("Failed to restore categories from cache", e);
+      }
+    }
+
+    // 2. Fetch fresh categories
     (async () => {
       try {
         const res = await apiClient.get("/categories");

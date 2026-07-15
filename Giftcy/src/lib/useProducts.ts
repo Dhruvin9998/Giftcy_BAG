@@ -96,29 +96,26 @@ export const dbToProduct = (d: DBProduct): Product => {
 };
 
 export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true }) {
-  const [list, setList] = useState<Product[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_products_list");
-        return cached ? JSON.parse(cached) : staticProducts;
-      } catch (e) {
-        return staticProducts;
-      }
-    }
-    return staticProducts;
-  });
-  const [dbList, setDbList] = useState<DBProduct[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_products_db_list");
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [list, setList] = useState<Product[]>(staticProducts);
+  const [dbList, setDbList] = useState<DBProduct[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedList = localStorage.getItem("giftcy_products_list");
+        if (cachedList) {
+          setList(JSON.parse(cachedList));
+        }
+        const cachedDbList = localStorage.getItem("giftcy_products_db_list");
+        if (cachedDbList) {
+          setDbList(JSON.parse(cachedDbList));
+        }
+      } catch (e) {
+        console.error("Failed to restore products from cache", e);
+      }
+    }
+  }, []);
 
   const load = async () => {
     setLoading(true);
