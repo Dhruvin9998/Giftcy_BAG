@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import ApiError from '../utils/apiError.js';
 import ApiResponse from '../utils/apiResponse.js';
+import cloudinary, { uploadToCloudinary } from '../utils/cloudinary.js';
 
 const uploadDir = path.resolve('public/uploads');
 
@@ -21,6 +22,26 @@ export const uploadMedia = async (req, res, next) => {
       return next(new ApiError(400, 'Please upload a file'));
     }
 
+    const localFilePath = req.file.path;
+
+    // Upload to Cloudinary if keys are configured
+    const cloudinaryResult = await uploadToCloudinary(localFilePath, 'giftcy_uploads');
+
+    if (cloudinaryResult) {
+      return new ApiResponse(
+        201,
+        {
+          name: req.file.filename,
+          url: cloudinaryResult.url,
+          size: req.file.size,
+          mimetype: req.file.mimetype,
+          public_id: cloudinaryResult.public_id,
+        },
+        'File uploaded successfully to Cloudinary.'
+      ).send(res);
+    }
+
+    // Fallback: local hosting
     const host = req.get('host');
     const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
     const protocol = isLocal ? (req.headers['x-forwarded-proto'] || req.protocol) : 'https';
@@ -34,7 +55,7 @@ export const uploadMedia = async (req, res, next) => {
         size: req.file.size,
         mimetype: req.file.mimetype,
       },
-      'File uploaded successfully.'
+      'File uploaded successfully to local storage.'
     ).send(res);
   } catch (error) {
     next(error);
@@ -48,6 +69,30 @@ export const uploadMedia = async (req, res, next) => {
  */
 export const getAllMedia = async (req, res, next) => {
   try {
+    const isCloudinaryConfigured = 
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET;
+
+    if (isCloudinaryConfigured) {
+      const result = await cloudinary.api.resources({
+        type: 'upload',
+        max_results: 100,
+      });
+
+      const mediaList = result.resources.map((resource) => {
+        return {
+          name: resource.public_id,
+          url: resource.secure_url,
+          size: resource.bytes,
+          createdAt: resource.created_at,
+          mimetype: `${resource.resource_type}/${resource.format}`,
+        };
+      });
+
+      return new ApiResponse(200, mediaList, 'Media library assets retrieved from Cloudinary.').send(res);
+    }
+
     if (!fs.existsSync(uploadDir)) {
       return new ApiResponse(200, [], 'No media files found (directory empty).').send(res);
     }
@@ -75,7 +120,7 @@ export const getAllMedia = async (req, res, next) => {
     // Sort by creation date descending
     mediaList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    new ApiResponse(200, mediaList, 'Media library assets retrieved.').send(res);
+    new ApiResponse(200, mediaList, 'Media library assets retrieved from local storage.').send(res);
   } catch (error) {
     next(error);
   }
@@ -88,9 +133,23 @@ export const getAllMedia = async (req, res, next) => {
  */
 export const deleteMedia = async (req, res, next) => {
   try {
+    const isCloudinaryConfigured = 
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET;
+
+    if (isCloudinaryConfigured) {
+      const publicId = req.params.name + (req.params[0] || '');
+      const result = await cloudinary.uploader.destroy(publicId);
+
+      if (result.result === 'ok') {
+        return new ApiResponse(200, null, 'File deleted successfully from Cloudinary.').send(res);
+      } else {
+        return next(new ApiError(404, `Cloudinary deletion failed: ${result.result}`));
+      }
+    }
+
     const filename = req.params.name;
-    
-    // Prevent directory traversal: extract only the base filename
     const safeFilename = path.basename(filename);
     const filePath = path.join(uploadDir, safeFilename);
 

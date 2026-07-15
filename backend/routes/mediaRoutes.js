@@ -53,7 +53,6 @@ router.route('/')
   .get(getAllMedia)
   .post(upload.single('file'), uploadMedia);
 
-router.route('/:name')
-  .delete(deleteMedia);
+router.delete('/:name*', deleteMedia);
 
 export default router;

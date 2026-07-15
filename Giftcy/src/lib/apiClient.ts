@@ -54,7 +54,7 @@ function cleanUrls(obj: any): any {
 }
 
 async function request(method: string, endpoint: string, body?: any, options: RequestOptions = {}) {
-  const token = localStorage.getItem("token");
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && !(body instanceof FormData)) {

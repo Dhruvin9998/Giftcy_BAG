@@ -34,21 +34,41 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/apiClient";
 
-export const Route = createFileRoute("/")(
-  {
-    head: () => ({
-      meta: [
-        { title: "Giftcy — Make Every Gift Premium" },
-        {
-          name: "description",
-          content:
-            "Premium reusable fabric gift bags for weddings, festivals, and luxury Indian gifting.",
-        },
-      ],
-    }),
-    component: Home,
+export const Route = createFileRoute("/")({
+  loader: async () => {
+    try {
+      const [settingsRes, collectionsRes, bannersRes] = await Promise.all([
+        apiClient.get("/settings").catch(() => null),
+        apiClient.get("/collections").catch(() => null),
+        apiClient.get("/banners").catch(() => null),
+      ]);
+
+      return {
+        settings: settingsRes?.success ? settingsRes.data : null,
+        collections: collectionsRes?.success ? (collectionsRes.data?.collections || []) : [],
+        banners: bannersRes?.success ? (bannersRes.data || []) : [],
+      };
+    } catch (err) {
+      console.error("Failed to load homepage data in server loader:", err);
+      return {
+        settings: null,
+        collections: [],
+        banners: [],
+      };
+    }
   },
-);
+  head: ({ loaderData }) => {
+    const title = loaderData?.settings?.homepage_hero?.title || "Giftcy — Make Every Gift Premium";
+    const desc = loaderData?.settings?.homepage_hero?.description || "Premium reusable fabric gift bags for weddings, festivals, and luxury Indian gifting.";
+    return {
+      meta: [
+        { title },
+        { name: "description", content: desc },
+      ],
+    };
+  },
+  component: Home,
+});
 
 const collections = [
   { name: "Wedding", img: wedding, count: 42 },
@@ -137,70 +157,46 @@ const instaImages = [
 ];
 
 function Home() {
+  const loaderData = Route.useLoaderData();
   const { products: displayProducts, loading } = useProducts();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
-  const [settings, setSettings] = useState<any>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_settings");
-        return cached ? JSON.parse(cached) : null;
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
-  const [dbCollections, setDbCollections] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_collections");
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
-  const [banners, setBanners] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("giftcy_banners");
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [settings, setSettings] = useState<any>(loaderData.settings);
+  const [dbCollections, setDbCollections] = useState<any[]>(loaderData.collections);
+  const [banners, setBanners] = useState<any[]>(loaderData.banners);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
   useEffect(() => {
+    // 1. Sync cache locally when fresh loader data updates
+    if (typeof window !== "undefined") {
+      try {
+        if (settings) localStorage.setItem("giftcy_settings", JSON.stringify(settings));
+        if (dbCollections.length > 0) localStorage.setItem("giftcy_collections", JSON.stringify(dbCollections));
+        if (banners.length > 0) localStorage.setItem("giftcy_banners", JSON.stringify(banners));
+      } catch (e) {
+        console.error("Failed to update homepage cache", e);
+      }
+    }
+  }, [settings, dbCollections, banners]);
+
+  useEffect(() => {
+    // 2. Fetch fresh background sync on mount
     (async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data) {
           setSettings(res.data);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("giftcy_settings", JSON.stringify(res.data));
-          }
         }
         const colRes = await apiClient.get("/collections");
         if (colRes?.success && Array.isArray(colRes.data?.collections)) {
           setDbCollections(colRes.data.collections);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("giftcy_collections", JSON.stringify(colRes.data.collections));
-          }
         }
         const bannersRes = await apiClient.get("/banners");
         if (bannersRes?.success && Array.isArray(bannersRes.data)) {
           setBanners(bannersRes.data);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("giftcy_banners", JSON.stringify(bannersRes.data));
-          }
         }
       } catch (err) {
-        console.error("Failed to load settings or collections or banners", err);
+        console.error("Failed to sync homepage data on mount", err);
       }
     })();
   }, []);
