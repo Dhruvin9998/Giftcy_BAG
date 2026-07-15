@@ -11,8 +11,16 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Helper to generate JWT Token
 const generateToken = (id) => {
-  const secret = process.env.JWT_SECRET || 'giftcy_default_jwt_secret_key_123456789_abcdef';
-  const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
+  let secret = process.env.JWT_SECRET;
+  if (!secret || typeof secret !== 'string' || secret.trim() === '') {
+    secret = 'giftcy_default_jwt_secret_key_123456789_abcdef';
+  }
+
+  let expiresIn = process.env.JWT_EXPIRES_IN;
+  if (!expiresIn || typeof expiresIn !== 'string' || expiresIn.trim() === '') {
+    expiresIn = '7d';
+  }
+
   return jwt.sign({ id }, secret, {
     expiresIn,
   });
@@ -22,7 +30,11 @@ const generateToken = (id) => {
 const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
   const token = generateToken(user._id);
 
-  const cookieDays = parseInt(process.env.JWT_COOKIE_EXPIRES_IN || '7', 10);
+  let cookieDays = parseInt(process.env.JWT_COOKIE_EXPIRES_IN, 10);
+  if (isNaN(cookieDays) || cookieDays <= 0) {
+    cookieDays = 7;
+  }
+
   const cookieOptions = {
     expires: new Date(
       Date.now() + cookieDays * 24 * 60 * 60 * 1000
