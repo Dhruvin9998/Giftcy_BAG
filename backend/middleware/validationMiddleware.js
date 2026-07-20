@@ -6,7 +6,7 @@ export const validateRegister = (req, res, next) => {
   if (!name || !email || !password) {
     return next(new ApiError(400, 'Please provide name, email, and password'));
   }
-  const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return next(new ApiError(400, 'Please provide a valid email address'));
   }

@@ -180,67 +180,61 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
 
-    if (mode === "login") {
-      const res = await signIn(email, password);
-      setLoading(false);
-      if (res.error) return toast.error(res.error);
-      if (res.requiresVerification) {
-        if (res.email) setEmail(res.email);
+    try {
+      if (mode === "login") {
+        const res = await signIn(email.trim(), password);
+        if (res.error) {
+          toast.error(res.error);
+          return;
+        }
+        if (res.requiresVerification) {
+          if (res.email) setEmail(res.email);
+          setEmailFailed(!!res.emailFailed);
+          if (res.emailFailed) {
+            toast.warning("Verification email delivery failed, but you can request a resend.");
+          } else {
+            toast.info("Your account needs verification. Check your email for the OTP code.");
+          }
+          handleGoToOtp();
+          return;
+        }
+        toast.success("Welcome back!");
+      } else if (mode === "signup") {
+        const res = await signUp(email.trim(), password, name.trim());
+        if (res.error) {
+          if (
+            res.error.toLowerCase().includes("already exists") ||
+            res.error.toLowerCase().includes("already in use")
+          ) {
+            toast.info("An account with this email already exists. Redirecting you to Sign In.");
+            setMode("login");
+            nav({ to: "/auth", search: { tab: "login" } });
+          } else {
+            toast.error(res.error);
+          }
+          return;
+        }
         setEmailFailed(!!res.emailFailed);
         if (res.emailFailed) {
-          toast.warning("Verification email delivery failed, but you can bypass it for staging.");
+          toast.warning(res.message || "Account created, but we couldn't send the verification email.");
         } else {
-          toast.info("Your account needs verification. Check your email for the OTP code.");
+          toast.success(res.message || "Account created! Check your email for the verification code.");
         }
         handleGoToOtp();
-        return;
-      }
-      toast.success("Welcome back!");
-    } else if (mode === "signup") {
-      const res = await signUp(email, password, name);
-      setLoading(false);
-      if (res.error) {
-        if (
-          res.error.toLowerCase().includes("already exists") ||
-          res.error.toLowerCase().includes("already in use")
-        ) {
-          toast.info("An account with this email already exists. Redirecting you to Sign In.");
-          setMode("login");
-          nav({ to: "/auth", search: { tab: "login" } });
-        } else {
-          toast.error(res.error);
-        }
-        return;
-      }
-      setEmailFailed(!!res.emailFailed);
-      if (res.emailFailed) {
-        toast.warning(res.message || "Account created, but we couldn't send the verification email.");
-      } else {
-        toast.success("Account created! Check your email for the verification code.");
-      }
-      handleGoToOtp();
-    } else if (mode === "forgot") {
-      try {
-        const response = await apiClient.post("/auth/forgot-password", { email });
-        setLoading(false);
+      } else if (mode === "forgot") {
+        const response = await apiClient.post("/auth/forgot-password", { email: email.trim() });
         if (response?.success) {
-          toast.success("Password recovery link sent! Check your email / terminal console.");
+          toast.success("Password recovery link sent! Check your email.");
           setEmail("");
         } else {
           toast.error(response.message || "Failed to send reset link");
         }
-      } catch (err: any) {
-        setLoading(false);
-        toast.error(err.message || "Something went wrong.");
-      }
-    } else if (mode === "reset") {
-      if (password !== confirmPassword) {
-        setLoading(false);
-        return toast.error("Passwords do not match");
-      }
-      try {
+      } else if (mode === "reset") {
+        if (password !== confirmPassword) {
+          toast.error("Passwords do not match");
+          return;
+        }
         const response = await apiClient.put(`/auth/reset-password/${token}`, { password });
-        setLoading(false);
         if (response?.success) {
           toast.success("Password reset successfully! Please log in.");
           setMode("login");
@@ -250,10 +244,12 @@ function AuthPage() {
         } else {
           toast.error(response.message || "Failed to reset password");
         }
-      } catch (err: any) {
-        setLoading(false);
-        toast.error(err.message || "Something went wrong or token has expired.");
       }
+    } catch (err: any) {
+      console.error("Auth submit error:", err);
+      toast.error(err.message || "An error occurred during authentication. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
