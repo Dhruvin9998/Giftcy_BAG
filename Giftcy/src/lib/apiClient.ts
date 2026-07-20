@@ -20,16 +20,16 @@ function cleanUrls(obj: any): any {
     const apiUrl = import.meta.env.VITE_API_URL || "";
     const backendBase = apiUrl ? apiUrl.replace(/\/api\/v1\/?$/, "") : "";
 
-    // 1. If we are on a production domain, rewrite localhost URLs to point to the active backend domain
-    if (isProduction && (cleaned.includes("localhost:5098") || cleaned.includes("127.0.0.1:5098"))) {
-      if (backendBase) {
+    // 1. If we are on a production domain and have a backend domain configured, rewrite localhost URLs
+    if (isProduction && backendBase && !backendBase.includes("localhost") && !backendBase.includes("127.0.0.1")) {
+      if (cleaned.includes("localhost:5098") || cleaned.includes("127.0.0.1:5098")) {
         cleaned = cleaned.replace(/^https?:\/\/(localhost|127\.0\.0\.1):5098/, backendBase);
       }
     }
     
-    // 2. If the current site is loaded over HTTPS, upgrade our backend's HTTP URLs to HTTPS
+    // 2. If the current site is loaded over HTTPS, upgrade any http:// URLs to https:// to prevent Mixed Content errors
     if (typeof window !== "undefined" && window.location.protocol === "https:") {
-      if (backendBase && cleaned.startsWith("http://") && cleaned.includes(backendBase.replace(/^https?:\/\//, ""))) {
+      if (cleaned.startsWith("http://")) {
         cleaned = cleaned.replace(/^http:\/\//, "https://");
       }
     }
