@@ -100,23 +100,6 @@ export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true 
   const [dbList, setDbList] = useState<DBProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cachedList = localStorage.getItem("giftcy_products_list");
-        if (cachedList) {
-          setList(JSON.parse(cachedList));
-        }
-        const cachedDbList = localStorage.getItem("giftcy_products_db_list");
-        if (cachedDbList) {
-          setDbList(JSON.parse(cachedDbList));
-        }
-      } catch (e) {
-        console.error("Failed to restore products from cache", e);
-      }
-    }
-  }, []);
-
   const load = async () => {
     setLoading(true);
     try {

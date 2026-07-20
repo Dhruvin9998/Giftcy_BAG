@@ -93,6 +93,15 @@ app.use(xss());
 // 8. Rate Limiting (Throttle API requests)
 app.use('/api', apiLimiter);
 
+// Disable HTTP caching for all API responses so visitors always receive fresh data instantly
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  next();
+});
+
 // 9. API Route Definitions
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/products', productRoutes);
