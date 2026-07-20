@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Sparkles, ShoppingBag, Download, ArrowRight } from "lucide-react";
+import { Check, Sparkles, ShoppingBag, Download, ArrowRight, Palette } from "lucide-react";
 import { useCart } from "@/components/CartContext";
 import type { Product } from "@/lib/products";
 import hero from "@/assets/hero-bag.jpg";
@@ -213,9 +213,9 @@ function CustomizePage() {
 
           {/* Color */}
           <Group step="02" title="Pick a color" caption={colorLabel}>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {COLORS.map((c) => {
-                const active = color === c.hex;
+                const active = color.toLowerCase() === c.hex.toLowerCase();
                 return (
                   <button
                     key={c.id}
@@ -228,6 +228,56 @@ function CustomizePage() {
                   </button>
                 );
               })}
+
+              {/* Custom Color Picker (Spectrum Wheel) */}
+              <div className="relative group">
+                <button
+                  type="button"
+                  title="Pick any custom color"
+                  className={`relative h-12 w-12 rounded-full flex items-center justify-center transition overflow-hidden ${
+                    !COLORS.some((c) => c.hex.toLowerCase() === color.toLowerCase())
+                      ? "ring-2 ring-offset-2 ring-foreground"
+                      : "ring-1 ring-border hover:ring-foreground/40"
+                  }`}
+                  style={{
+                    background: !COLORS.some((c) => c.hex.toLowerCase() === color.toLowerCase())
+                      ? color
+                      : "conic-gradient(from 180deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
+                  }}
+                >
+                  <Palette className="h-5 w-5 text-white drop-shadow mix-blend-difference" />
+                  <input
+                    type="color"
+                    value={color.startsWith("#") && color.length === 7 ? color : "#c8a24b"}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      setColor(hex);
+                      setColorLabel(`Custom (${hex.toUpperCase()})`);
+                    }}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                    title="Click to open custom color picker"
+                  />
+                </button>
+              </div>
+
+              {/* Direct HEX Code Input */}
+              <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full border border-border bg-background text-xs">
+                <span className="text-muted-foreground font-mono">#</span>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={color.startsWith("#") ? color.slice(1) : color}
+                  onChange={(e) => {
+                    const cleanHex = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+                    const fullHex = `#${cleanHex}`;
+                    setColor(fullHex);
+                    const match = COLORS.find((c) => c.hex.toLowerCase() === fullHex.toLowerCase());
+                    setColorLabel(match ? match.label : `Custom (${fullHex.toUpperCase()})`);
+                  }}
+                  placeholder="HEX Code"
+                  className="w-20 bg-transparent font-mono uppercase focus:outline-none text-foreground font-medium"
+                />
+              </div>
             </div>
           </Group>
 
