@@ -1,4 +1,4 @@
-let BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5098/api/v1";
+let BASE_URL = import.meta.env.VITE_API_URL || "https://giftcy-bag.onrender.com/api/v1";
 
 if (BASE_URL && !BASE_URL.endsWith("/api/v1") && !BASE_URL.endsWith("/api/v1/")) {
   BASE_URL = BASE_URL.endsWith("/") ? `${BASE_URL}api/v1` : `${BASE_URL}/api/v1`;
