@@ -72,8 +72,40 @@ export const signup = async (req, res, next) => {
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
-      console.warn(`[Registration Failed] User already exists with email: ${email}`);
-      return next(new ApiError(400, 'User already exists with this email address'));
+      // If the existing user account is ALREADY verified, reject registration
+      if (userExists.isVerified) {
+        console.warn(`[Registration Failed] Verified user already exists with email: ${email}`);
+        return next(new ApiError(400, 'An account with this email is already registered and verified. Please sign in instead.'));
+      }
+
+      // If user exists but is NOT verified yet, update details, refresh OTP, and send email again
+      console.log(`[Re-registration for Unverified User] Updating details and resending OTP for: ${email}`);
+      if (name) userExists.name = name;
+      if (password) userExists.password = password;
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      userExists.otp = otp;
+      userExists.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+      await userExists.save();
+
+      try {
+        await sendOTPEmail(userExists.email, otp);
+      } catch (err) {
+        console.error(`Failed to send verification email to ${userExists.email}:`, err.message);
+        console.warn(`[OTP Code Fallback for ${userExists.email}] is: ${otp}`);
+        return new ApiResponse(
+          200,
+          { email: userExists.email, emailFailed: true },
+          'Verification code generated. We had trouble delivering the email, but you can request a resend.'
+        ).send(res);
+      }
+
+      return new ApiResponse(
+        200,
+        { email: userExists.email },
+        'A fresh verification code has been sent to your email address.'
+      ).send(res);
     }
 
     // Generate a 6-digit numeric OTP code
@@ -106,7 +138,6 @@ export const signup = async (req, res, next) => {
     } catch (err) {
       console.error(`Failed to send verification email to ${user.email}:`, err.message);
       console.warn(`[OTP Code Fallback for ${user.email}] is: ${otp}`);
-      // DO NOT delete the user profile so the account exists and they can request a resend (resend-otp)
       return new ApiResponse(
         201,
         { email: user.email, emailFailed: true },
