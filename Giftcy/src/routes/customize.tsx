@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Check, Sparkles, ShoppingBag, Download, ArrowRight, Palette, Upload, Image as ImageIcon, X } from "lucide-react";
+import { Check, Sparkles, ShoppingBag, Download, ArrowRight, Palette, MessageCircle } from "lucide-react";
 import { useCart } from "@/components/CartContext";
+import { apiClient } from "@/lib/apiClient";
 import type { Product } from "@/lib/products";
 import hero from "@/assets/hero-bag.jpg";
 
@@ -10,7 +11,7 @@ export const Route = createFileRoute("/customize")({
   head: () => ({
     meta: [
       { title: "Customize Your Gift Bag — Giftcy" },
-      { name: "description", content: "Design your own luxury reusable fabric gift bag — choose fabric, color, size, handle, monogram, and packaging. Live preview." },
+      { name: "description", content: "Design your own luxury reusable fabric gift bag — choose fabric, color, size, and packaging. Live preview." },
       { property: "og:title", content: "Customize Your Gift Bag — Giftcy" },
       { property: "og:description", content: "Design your own luxury reusable fabric gift bag. Live preview, instant pricing." },
     ],
@@ -61,46 +62,38 @@ function CustomizePage() {
   const [colorLabel, setColorLabel] = useState(COLORS[1].label);
   const [size, setSize] = useState("M");
   const [pack, setPack] = useState("kraft");
-  const [monogram, setMonogram] = useState("");
-  const [font, setFont] = useState<"serif" | "sans" | "script">("serif");
   const [qty, setQty] = useState(25);
-  const [designImage, setDesignImage] = useState<string | null>(null);
-  const [designFileName, setDesignFileName] = useState<string>("");
+  const [waNumber, setWaNumber] = useState("919999999999");
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setDesignFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setDesignImage(evt.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeDesignImage = () => {
-    setDesignImage(null);
-    setDesignFileName("");
-  };
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get("/settings");
+        if (res?.success && res?.data?.contact_info?.whatsapp) {
+          const cleanNum = res.data.contact_info.whatsapp.replace(/\D/g, "");
+          if (cleanNum) setWaNumber(cleanNum);
+        }
+      } catch (err) {
+        console.error("Failed to load settings", err);
+      }
+    })();
+  }, []);
 
   const price = useMemo(() => {
     const f = FABRICS.find((x) => x.id === fabric)!.price;
     const s = SIZES.find((x) => x.id === size)!.price;
     const p = PACKAGING.find((x) => x.id === pack)!.price;
-    const m = monogram.trim() || designImage ? 35 : 0;
-    return BASE + f + s + p + m;
-  }, [fabric, size, pack, monogram, designImage]);
+    return BASE + f + s + p;
+  }, [fabric, size, pack]);
 
   const total = price * qty;
   const discount = qty >= 100 ? 0.15 : qty >= 50 ? 0.1 : qty >= 25 ? 0.05 : 0;
   const finalTotal = Math.round(total * (1 - discount));
 
   const addToCart = () => {
-    const customText = monogram.trim() ? ` — "${monogram.trim()}"` : designFileName ? ` — Custom Logo` : "";
     const product: Product = {
       slug: `custom-${Date.now()}`,
-      name: `Custom ${FABRICS.find((x) => x.id === fabric)!.label} Bag${customText}`,
+      name: `Custom ${FABRICS.find((x) => x.id === fabric)!.label} Bag`,
       category: "Custom Design",
       occasion: "Custom",
       price,
@@ -108,12 +101,10 @@ function CustomizePage() {
       image: hero,
       colors: [colorLabel],
       sizes: [size],
-      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${size}.${designFileName ? ` Custom design photo: ${designFileName}.` : ""}`,
+      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${size}.`,
     };
     add(product, { size, color: colorLabel, qty });
   };
-
-  const fontClass = font === "serif" ? "font-serif italic" : font === "script" ? "font-serif" : "font-sans tracking-widest uppercase";
 
   return (
     <>
@@ -127,7 +118,7 @@ function CustomizePage() {
           Design your own <em className="text-gold not-italic">gift bag</em>
         </h1>
         <p className="mt-5 text-muted-foreground max-w-xl mx-auto">
-          Curate fabric, color, size, monogram, or custom logo. Watch your piece come to life — priced instantly.
+          Curate fabric, color, size, and packaging. Watch your piece come to life — priced instantly.
         </p>
       </section>
 
@@ -135,7 +126,7 @@ function CustomizePage() {
         {/* LIVE PREVIEW */}
         <div className="lg:sticky lg:top-24 self-start">
           <motion.div
-            key={`${fabric}-${color}-${monogram}-${font}-${designFileName}`}
+            key={`${fabric}-${color}`}
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
@@ -170,38 +161,6 @@ function CustomizePage() {
                 />
                 {/* Cinch fold */}
                 <path d="M55 90 Q150 110 245 90" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="1" />
-                
-                {/* Uploaded Custom Logo Image Preview */}
-                {designImage && (
-                  <image
-                    href={designImage}
-                    x="100"
-                    y={monogram.trim() ? "145" : "160"}
-                    width="100"
-                    height="90"
-                    preserveAspectRatio="xMidYMid meet"
-                    className="drop-shadow-md opacity-90"
-                  />
-                )}
-
-                {/* Monogram Vector Text */}
-                {monogram.trim() && (
-                  <text
-                    x="150"
-                    y={designImage ? "265" : "215"}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="#caa24b"
-                    fontSize={monogram.length > 14 ? "14" : monogram.length > 8 ? "18" : "24"}
-                    fontWeight="600"
-                    fontStyle={font === "serif" ? "italic" : "normal"}
-                    fontFamily={font === "serif" ? "Georgia, serif" : font === "script" ? "Brush Script MT, Great Vibes, cursive, serif" : "system-ui, sans-serif"}
-                    letterSpacing={font === "sans" ? "3" : "1"}
-                    className="drop-shadow-sm select-none"
-                  >
-                    {monogram.trim()}
-                  </text>
-                )}
               </svg>
             </div>
 
@@ -219,11 +178,9 @@ function CustomizePage() {
               FABRICS.find((x) => x.id === fabric)!.label,
               colorLabel,
               `Size ${size}`,
-              monogram.trim() ? `Monogram: "${monogram.trim()}"` : null,
-              designFileName ? `Logo: ${designFileName}` : null,
               PACKAGING.find((x) => x.id === pack)!.label,
-            ].filter(Boolean).map((s) => (
-              <span key={s!} className="px-3 py-1.5 rounded-full bg-cream border border-border">{s}</span>
+            ].map((s) => (
+              <span key={s} className="px-3 py-1.5 rounded-full bg-cream border border-border">{s}</span>
             ))}
           </div>
         </div>
@@ -344,67 +301,37 @@ function CustomizePage() {
             </div>
           </Group>
 
-          {/* Monogram & Custom Logo Upload */}
-          <Group step="04" title="Personal monogram & design upload" caption="Optional · + ₹35">
-            <div className="space-y-4">
-              {/* Single Line Text Monogram Input */}
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1.5 font-medium">Text Monogram (Single Line)</label>
-                <input
-                  type="text"
-                  value={monogram}
-                  onChange={(e) => setMonogram(e.target.value.replace(/[\r\n]/g, "").slice(0, 24))}
-                  placeholder="e.g. A & R, Sharma Wedding"
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:border-foreground outline-none text-sm font-medium"
-                />
-                <div className="mt-2.5 flex items-center gap-2">
-                  <span className="text-[11px] text-muted-foreground mr-1">Font style:</span>
-                  {(["serif", "script", "sans"] as const).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setFont(f)}
-                      className={`px-3 py-1.5 rounded-full border text-xs capitalize transition ${font === f ? "border-foreground bg-foreground text-background font-semibold" : "border-border hover:border-foreground/40 text-muted-foreground"}`}
-                    >
-                      {f}
-                    </button>
-                  ))}
+          {/* Step 04: Contact Us & WhatsApp Link Section */}
+          <Group step="04" title="Custom Monogram & Logo Printing" caption="Connect with our design team">
+            <div className="rounded-2xl border border-border bg-cream p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-[#25D366]/15 text-[#25D366] flex items-center justify-center shrink-0 mt-0.5">
+                  <MessageCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">Need Custom Embroidery, Logo Printing, or Monograms?</h4>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Chat directly with our gifting concierge on WhatsApp to send your logo photo, text monogram, or special design requirements.
+                  </p>
                 </div>
               </div>
 
-              {/* Custom Design / Logo Photo Upload */}
-              <div className="pt-2 border-t border-border/60">
-                <label className="block text-xs text-muted-foreground mb-1.5 font-medium">Upload Logo / Design Photo</label>
-                {designImage ? (
-                  <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-cream">
-                    <div className="flex items-center gap-3">
-                      <img src={designImage} alt="Uploaded Design" className="h-10 w-10 object-contain rounded border bg-white" />
-                      <div>
-                        <div className="text-xs font-medium truncate max-w-[200px]">{designFileName}</div>
-                        <div className="text-[10px] text-gold font-medium">Uploaded & projected on preview</div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={removeDesignImage}
-                      className="p-1.5 rounded-full hover:bg-background text-muted-foreground hover:text-foreground transition"
-                      title="Remove design photo"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="relative flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border border-dashed border-border hover:border-foreground bg-background hover:bg-cream/50 cursor-pointer transition text-xs text-muted-foreground">
-                    <Upload className="h-4 w-4 text-gold" />
-                    <span className="font-medium">Upload design photo or logo (PNG / JPG / SVG)</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                  </label>
-                )}
+              <div className="flex flex-wrap gap-3 pt-2">
+                <a
+                  href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Hi! I would like to inquire about custom monogram/logo printing for my gift bags.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#25D366] text-white text-xs font-semibold hover:bg-[#20bd5a] transition shadow-sm"
+                >
+                  <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
+                </a>
+
+                <Link
+                  to="/contact"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-foreground text-foreground text-xs font-semibold hover:bg-foreground hover:text-background transition"
+                >
+                  Contact Us <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             </div>
           </Group>
@@ -474,19 +401,21 @@ function CustomizePage() {
               >
                 <ShoppingBag className="h-4 w-4" /> Add Custom Order
               </button>
+              <a
+                href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Hi! I would like to inquire about a custom gift bag order.")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#25D366] text-white text-sm font-medium hover:bg-[#20bd5a] transition"
+              >
+                <MessageCircle className="h-4 w-4" /> WhatsApp Us
+              </a>
               <Link
-                to="/bulk"
-                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full border border-foreground text-sm hover:bg-foreground hover:text-background transition"
-              >
-                Request Quote <ArrowRight className="h-4 w-4" />
-              </Link>
-              <button
-                onClick={() => window.print()}
+                to="/contact"
                 className="h-12 w-12 rounded-full border border-border flex items-center justify-center hover:text-gold"
-                aria-label="Save design"
+                title="Contact Us"
               >
-                <Download className="h-4 w-4" />
-              </button>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
             <p className="text-[11px] text-muted-foreground mt-4 text-center">
               Sample dispatch in 4–6 days · Bulk delivery in 14–21 days · Free design consultation
