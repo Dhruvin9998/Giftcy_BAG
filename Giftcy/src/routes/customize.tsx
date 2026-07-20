@@ -46,20 +46,6 @@ const SIZES = [
   { id: "XL", label: "X-Large", dims: "34 × 42 cm", price: 110 },
 ];
 
-const HANDLES = [
-  { id: "drawstring", label: "Satin Drawstring", price: 0 },
-  { id: "rope", label: "Gold Rope", price: 25 },
-  { id: "tassel", label: "Hand Tassel", price: 40 },
-  { id: "fabric", label: "Fabric Loop", price: 15 },
-];
-
-const TRIMS = [
-  { id: "none", label: "None", price: 0 },
-  { id: "piping", label: "Gold Piping", price: 35 },
-  { id: "lace", label: "Chantilly Lace", price: 55 },
-  { id: "zari", label: "Zari Border", price: 80 },
-];
-
 const PACKAGING = [
   { id: "kraft", label: "Kraft Sleeve", price: 0 },
   { id: "box", label: "Rigid Gift Box", price: 90 },
@@ -74,8 +60,6 @@ function CustomizePage() {
   const [color, setColor] = useState(COLORS[1].hex);
   const [colorLabel, setColorLabel] = useState(COLORS[1].label);
   const [size, setSize] = useState("M");
-  const [handle, setHandle] = useState("drawstring");
-  const [trim, setTrim] = useState("none");
   const [pack, setPack] = useState("kraft");
   const [monogram, setMonogram] = useState("");
   const [font, setFont] = useState<"serif" | "sans" | "script">("serif");
@@ -84,12 +68,10 @@ function CustomizePage() {
   const price = useMemo(() => {
     const f = FABRICS.find((x) => x.id === fabric)!.price;
     const s = SIZES.find((x) => x.id === size)!.price;
-    const h = HANDLES.find((x) => x.id === handle)!.price;
-    const t = TRIMS.find((x) => x.id === trim)!.price;
     const p = PACKAGING.find((x) => x.id === pack)!.price;
     const m = monogram ? 35 : 0;
-    return BASE + f + s + h + t + p + m;
-  }, [fabric, size, handle, trim, pack, monogram]);
+    return BASE + f + s + p + m;
+  }, [fabric, size, pack, monogram]);
 
   const total = price * qty;
   const discount = qty >= 100 ? 0.15 : qty >= 50 ? 0.1 : qty >= 25 ? 0.05 : 0;
@@ -106,7 +88,7 @@ function CustomizePage() {
       image: hero,
       colors: [colorLabel],
       sizes: [size],
-      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${size}, ${HANDLES.find((x) => x.id === handle)!.label.toLowerCase()}.`,
+      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${size}.`,
     };
     add(product, { size, color: colorLabel, qty });
   };
@@ -125,7 +107,7 @@ function CustomizePage() {
           Design your own <em className="text-gold not-italic">gift bag</em>
         </h1>
         <p className="mt-5 text-muted-foreground max-w-xl mx-auto">
-          Curate fabric, color, trim and a personal monogram. Watch your piece come to life — priced instantly.
+          Curate fabric, color, size and a personal monogram. Watch your piece come to life — priced instantly.
         </p>
       </section>
 
@@ -133,7 +115,7 @@ function CustomizePage() {
         {/* LIVE PREVIEW */}
         <div className="lg:sticky lg:top-24 self-start">
           <motion.div
-            key={`${fabric}-${color}-${handle}-${trim}`}
+            key={`${fabric}-${color}`}
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
@@ -153,26 +135,8 @@ function CustomizePage() {
                     <stop offset="60%" stopColor="white" stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                {/* Handle / drawstring */}
-                {handle === "drawstring" && (
-                  <path d="M70 60 Q150 0 230 60" fill="none" stroke="#caa24b" strokeWidth="3" />
-                )}
-                {handle === "rope" && (
-                  <path d="M70 70 Q150 10 230 70" fill="none" stroke="#caa24b" strokeWidth="6" strokeDasharray="4 4" />
-                )}
-                {handle === "fabric" && (
-                  <path d="M80 70 Q150 20 220 70" fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" />
-                )}
-                {handle === "tassel" && (
-                  <>
-                    <path d="M70 60 Q150 0 230 60" fill="none" stroke="#caa24b" strokeWidth="3" />
-                    <line x1="150" y1="0" x2="150" y2="40" stroke="#caa24b" strokeWidth="2" />
-                    <circle cx="150" cy="48" r="10" fill="#caa24b" />
-                    {[...Array(7)].map((_, i) => (
-                      <line key={i} x1={142 + i * 2.5} y1="56" x2={142 + i * 2.5} y2="74" stroke="#caa24b" strokeWidth="1.5" />
-                    ))}
-                  </>
-                )}
+                {/* Drawstring handle */}
+                <path d="M70 60 Q150 0 230 60" fill="none" stroke="#caa24b" strokeWidth="3" />
                 {/* Bag body */}
                 <path
                   d="M55 80 Q55 75 60 75 L240 75 Q245 75 245 80 L260 350 Q260 360 250 360 L50 360 Q40 360 40 350 Z"
@@ -184,23 +148,6 @@ function CustomizePage() {
                   d="M55 80 Q55 75 60 75 L240 75 Q245 75 245 80 L260 350 Q260 360 250 360 L50 360 Q40 360 40 350 Z"
                   fill="url(#shine)"
                 />
-                {/* Trim */}
-                {trim === "piping" && (
-                  <path d="M40 350 L50 360 L250 360 L260 350" fill="none" stroke="#caa24b" strokeWidth="4" />
-                )}
-                {trim === "lace" && (
-                  <g fill="white" opacity="0.7">
-                    {[...Array(20)].map((_, i) => (
-                      <circle key={i} cx={50 + i * 11} cy="358" r="4" />
-                    ))}
-                  </g>
-                )}
-                {trim === "zari" && (
-                  <>
-                    <rect x="40" y="340" width="220" height="3" fill="#caa24b" />
-                    <rect x="40" y="348" width="220" height="1" fill="#caa24b" opacity="0.6" />
-                  </>
-                )}
                 {/* Cinch fold */}
                 <path d="M55 90 Q150 110 245 90" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="1" />
                 {/* Monogram */}
@@ -231,8 +178,6 @@ function CustomizePage() {
               FABRICS.find((x) => x.id === fabric)!.label,
               colorLabel,
               `Size ${size}`,
-              HANDLES.find((x) => x.id === handle)!.label,
-              TRIMS.find((x) => x.id === trim)!.label,
               PACKAGING.find((x) => x.id === pack)!.label,
             ].map((s) => (
               <span key={s} className="px-3 py-1.5 rounded-full bg-cream border border-border">{s}</span>
@@ -306,18 +251,8 @@ function CustomizePage() {
             </div>
           </Group>
 
-          {/* Handle */}
-          <Group step="04" title="Handle style">
-            <Pills items={HANDLES} value={handle} onChange={setHandle} />
-          </Group>
-
-          {/* Trim */}
-          <Group step="05" title="Trim / border">
-            <Pills items={TRIMS} value={trim} onChange={setTrim} />
-          </Group>
-
           {/* Monogram */}
-          <Group step="06" title="Personal monogram" caption="Optional · + ₹35">
+          <Group step="04" title="Personal monogram" caption="Optional · + ₹35">
             <input
               value={monogram}
               onChange={(e) => setMonogram(e.target.value.slice(0, 18))}
@@ -338,12 +273,12 @@ function CustomizePage() {
           </Group>
 
           {/* Packaging */}
-          <Group step="07" title="Packaging">
+          <Group step="05" title="Packaging">
             <Pills items={PACKAGING} value={pack} onChange={setPack} />
           </Group>
 
           {/* Quantity */}
-          <Group step="08" title="Quantity" caption={discount ? `${Math.round(discount * 100)}% bulk discount applied` : "Tip: 25+ unlocks discounts"}>
+          <Group step="06" title="Quantity" caption={discount ? `${Math.round(discount * 100)}% bulk discount applied` : "Tip: 25+ unlocks discounts"}>
             <div className="flex items-center gap-4">
               <input
                 type="range"
