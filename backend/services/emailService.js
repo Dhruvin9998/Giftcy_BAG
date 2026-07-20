@@ -1,13 +1,21 @@
 import nodemailer from 'nodemailer';
 
-const createTransporter = () => {
+// Singleton pooled transporter for instant email dispatch
+let cachedTransporter = null;
+
+const getTransporter = () => {
+  if (cachedTransporter) return cachedTransporter;
+
   const port = Number(process.env.SMTP_PORT) || 465;
   const isSecure = port === 465;
 
-  return nodemailer.createTransport({
+  cachedTransporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: port,
     secure: isSecure,
+    pool: true, // Enable SMTP connection pooling for fast message dispatch
+    maxConnections: 5,
+    maxMessages: 100,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -16,6 +24,8 @@ const createTransporter = () => {
       rejectUnauthorized: false,
     },
   });
+
+  return cachedTransporter;
 };
 
 // Send email helper
@@ -35,7 +45,7 @@ const sendEmail = async (options) => {
     return true;
   }
 
-  const transporter = createTransporter();
+  const transporter = getTransporter();
 
   const mailOptions = {
     from: options.from || `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
