@@ -76,6 +76,7 @@ function AuthPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [isGoogleReady, setIsGoogleReady] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  const isGoogleInitialized = useRef(false);
 
   const resendTimer = useCountdown(60);
   const expiryTimer = useCountdown(600); // 10 minutes
@@ -116,11 +117,14 @@ function AuthPage() {
 
     const initGoogle = () => {
       if (!(window as any).google?.accounts?.id) return;
-      (window as any).google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleGoogleCredential,
-        auto_select: false,
-      });
+      if (!isGoogleInitialized.current) {
+        (window as any).google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredential,
+          auto_select: false,
+        });
+        isGoogleInitialized.current = true;
+      }
       if (googleBtnRef.current) {
         googleBtnRef.current.innerHTML = "";
         (window as any).google.accounts.id.renderButton(googleBtnRef.current, {
