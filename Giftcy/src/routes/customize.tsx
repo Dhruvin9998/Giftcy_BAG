@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Sparkles, ShoppingBag, Download, ArrowRight, Palette } from "lucide-react";
+import { Check, Sparkles, ShoppingBag, Download, ArrowRight, Palette, Upload, Image as ImageIcon, X } from "lucide-react";
 import { useCart } from "@/components/CartContext";
 import type { Product } from "@/lib/products";
 import hero from "@/assets/hero-bag.jpg";
@@ -64,23 +64,43 @@ function CustomizePage() {
   const [monogram, setMonogram] = useState("");
   const [font, setFont] = useState<"serif" | "sans" | "script">("serif");
   const [qty, setQty] = useState(25);
+  const [designImage, setDesignImage] = useState<string | null>(null);
+  const [designFileName, setDesignFileName] = useState<string>("");
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setDesignFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        setDesignImage(evt.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeDesignImage = () => {
+    setDesignImage(null);
+    setDesignFileName("");
+  };
 
   const price = useMemo(() => {
     const f = FABRICS.find((x) => x.id === fabric)!.price;
     const s = SIZES.find((x) => x.id === size)!.price;
     const p = PACKAGING.find((x) => x.id === pack)!.price;
-    const m = monogram ? 35 : 0;
+    const m = monogram.trim() || designImage ? 35 : 0;
     return BASE + f + s + p + m;
-  }, [fabric, size, pack, monogram]);
+  }, [fabric, size, pack, monogram, designImage]);
 
   const total = price * qty;
   const discount = qty >= 100 ? 0.15 : qty >= 50 ? 0.1 : qty >= 25 ? 0.05 : 0;
   const finalTotal = Math.round(total * (1 - discount));
 
   const addToCart = () => {
+    const customText = monogram.trim() ? ` — "${monogram.trim()}"` : designFileName ? ` — Custom Logo` : "";
     const product: Product = {
       slug: `custom-${Date.now()}`,
-      name: `Custom ${FABRICS.find((x) => x.id === fabric)!.label} Bag${monogram ? ` — "${monogram}"` : ""}`,
+      name: `Custom ${FABRICS.find((x) => x.id === fabric)!.label} Bag${customText}`,
       category: "Custom Design",
       occasion: "Custom",
       price,
@@ -88,7 +108,7 @@ function CustomizePage() {
       image: hero,
       colors: [colorLabel],
       sizes: [size],
-      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${size}.`,
+      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${size}.${designFileName ? ` Custom design photo: ${designFileName}.` : ""}`,
     };
     add(product, { size, color: colorLabel, qty });
   };
@@ -107,7 +127,7 @@ function CustomizePage() {
           Design your own <em className="text-gold not-italic">gift bag</em>
         </h1>
         <p className="mt-5 text-muted-foreground max-w-xl mx-auto">
-          Curate fabric, color, size and a personal monogram. Watch your piece come to life — priced instantly.
+          Curate fabric, color, size, monogram, or custom logo. Watch your piece come to life — priced instantly.
         </p>
       </section>
 
@@ -115,7 +135,7 @@ function CustomizePage() {
         {/* LIVE PREVIEW */}
         <div className="lg:sticky lg:top-24 self-start">
           <motion.div
-            key={`${fabric}-${color}-${monogram}-${font}`}
+            key={`${fabric}-${color}-${monogram}-${font}-${designFileName}`}
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
@@ -150,22 +170,36 @@ function CustomizePage() {
                 />
                 {/* Cinch fold */}
                 <path d="M55 90 Q150 110 245 90" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="1" />
+                
+                {/* Uploaded Custom Logo Image Preview */}
+                {designImage && (
+                  <image
+                    href={designImage}
+                    x="100"
+                    y={monogram.trim() ? "145" : "160"}
+                    width="100"
+                    height="90"
+                    preserveAspectRatio="xMidYMid meet"
+                    className="drop-shadow-md opacity-90"
+                  />
+                )}
+
                 {/* Monogram Vector Text */}
-                {monogram && (
+                {monogram.trim() && (
                   <text
                     x="150"
-                    y="215"
+                    y={designImage ? "265" : "215"}
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fill="#caa24b"
-                    fontSize={monogram.length > 12 ? "16" : monogram.length > 8 ? "20" : "26"}
+                    fontSize={monogram.length > 14 ? "14" : monogram.length > 8 ? "18" : "24"}
                     fontWeight="600"
                     fontStyle={font === "serif" ? "italic" : "normal"}
                     fontFamily={font === "serif" ? "Georgia, serif" : font === "script" ? "Brush Script MT, Great Vibes, cursive, serif" : "system-ui, sans-serif"}
                     letterSpacing={font === "sans" ? "3" : "1"}
                     className="drop-shadow-sm select-none"
                   >
-                    {monogram}
+                    {monogram.trim()}
                   </text>
                 )}
               </svg>
@@ -185,7 +219,8 @@ function CustomizePage() {
               FABRICS.find((x) => x.id === fabric)!.label,
               colorLabel,
               `Size ${size}`,
-              monogram ? `Monogram: "${monogram}"` : null,
+              monogram.trim() ? `Monogram: "${monogram.trim()}"` : null,
+              designFileName ? `Logo: ${designFileName}` : null,
               PACKAGING.find((x) => x.id === pack)!.label,
             ].filter(Boolean).map((s) => (
               <span key={s!} className="px-3 py-1.5 rounded-full bg-cream border border-border">{s}</span>
@@ -309,24 +344,68 @@ function CustomizePage() {
             </div>
           </Group>
 
-          {/* Monogram */}
-          <Group step="04" title="Personal monogram" caption="Optional · + ₹35">
-            <input
-              value={monogram}
-              onChange={(e) => setMonogram(e.target.value.slice(0, 18))}
-              placeholder="e.g. A & R, Sharma Wedding"
-              className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:border-foreground outline-none text-sm"
-            />
-            <div className="mt-3 flex gap-2">
-              {(["serif", "script", "sans"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFont(f)}
-                  className={`px-4 py-2 rounded-full border text-xs capitalize transition ${font === f ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground/40"}`}
-                >
-                  {f}
-                </button>
-              ))}
+          {/* Monogram & Custom Logo Upload */}
+          <Group step="04" title="Personal monogram & design upload" caption="Optional · + ₹35">
+            <div className="space-y-4">
+              {/* Single Line Text Monogram Input */}
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5 font-medium">Text Monogram (Single Line)</label>
+                <input
+                  type="text"
+                  value={monogram}
+                  onChange={(e) => setMonogram(e.target.value.replace(/[\r\n]/g, "").slice(0, 24))}
+                  placeholder="e.g. A & R, Sharma Wedding"
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:border-foreground outline-none text-sm font-medium"
+                />
+                <div className="mt-2.5 flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground mr-1">Font style:</span>
+                  {(["serif", "script", "sans"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFont(f)}
+                      className={`px-3 py-1.5 rounded-full border text-xs capitalize transition ${font === f ? "border-foreground bg-foreground text-background font-semibold" : "border-border hover:border-foreground/40 text-muted-foreground"}`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Design / Logo Photo Upload */}
+              <div className="pt-2 border-t border-border/60">
+                <label className="block text-xs text-muted-foreground mb-1.5 font-medium">Upload Logo / Design Photo</label>
+                {designImage ? (
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-cream">
+                    <div className="flex items-center gap-3">
+                      <img src={designImage} alt="Uploaded Design" className="h-10 w-10 object-contain rounded border bg-white" />
+                      <div>
+                        <div className="text-xs font-medium truncate max-w-[200px]">{designFileName}</div>
+                        <div className="text-[10px] text-gold font-medium">Uploaded & projected on preview</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeDesignImage}
+                      className="p-1.5 rounded-full hover:bg-background text-muted-foreground hover:text-foreground transition"
+                      title="Remove design photo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="relative flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border border-dashed border-border hover:border-foreground bg-background hover:bg-cream/50 cursor-pointer transition text-xs text-muted-foreground">
+                    <Upload className="h-4 w-4 text-gold" />
+                    <span className="font-medium">Upload design photo or logo (PNG / JPG / SVG)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           </Group>
 
