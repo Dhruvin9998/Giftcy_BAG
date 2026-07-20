@@ -115,7 +115,7 @@ function CustomizePage() {
         {/* LIVE PREVIEW */}
         <div className="lg:sticky lg:top-24 self-start">
           <motion.div
-            key={`${fabric}-${color}`}
+            key={`${fabric}-${color}-${monogram}-${font}`}
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
@@ -150,16 +150,23 @@ function CustomizePage() {
                 />
                 {/* Cinch fold */}
                 <path d="M55 90 Q150 110 245 90" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="1" />
-                {/* Monogram */}
+                {/* Monogram Vector Text */}
                 {monogram && (
-                  <foreignObject x="60" y="180" width="180" height="60">
-                    <div
-                      className={`flex h-full w-full items-center justify-center text-center ${fontClass}`}
-                      style={{ color: "#caa24b", fontSize: monogram.length > 8 ? 18 : 28, letterSpacing: font === "sans" ? "0.2em" : "0.04em" }}
-                    >
-                      {monogram}
-                    </div>
-                  </foreignObject>
+                  <text
+                    x="150"
+                    y="215"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="#caa24b"
+                    fontSize={monogram.length > 12 ? "16" : monogram.length > 8 ? "20" : "26"}
+                    fontWeight="600"
+                    fontStyle={font === "serif" ? "italic" : "normal"}
+                    fontFamily={font === "serif" ? "Georgia, serif" : font === "script" ? "Brush Script MT, Great Vibes, cursive, serif" : "system-ui, sans-serif"}
+                    letterSpacing={font === "sans" ? "3" : "1"}
+                    className="drop-shadow-sm select-none"
+                  >
+                    {monogram}
+                  </text>
                 )}
               </svg>
             </div>
@@ -178,9 +185,10 @@ function CustomizePage() {
               FABRICS.find((x) => x.id === fabric)!.label,
               colorLabel,
               `Size ${size}`,
+              monogram ? `Monogram: "${monogram}"` : null,
               PACKAGING.find((x) => x.id === pack)!.label,
-            ].map((s) => (
-              <span key={s} className="px-3 py-1.5 rounded-full bg-cream border border-border">{s}</span>
+            ].filter(Boolean).map((s) => (
+              <span key={s!} className="px-3 py-1.5 rounded-full bg-cream border border-border">{s}</span>
             ))}
           </div>
         </div>
