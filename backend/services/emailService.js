@@ -16,6 +16,9 @@ const getTransporter = () => {
     pool: true, // Enable SMTP connection pooling for fast message dispatch
     maxConnections: 5,
     maxMessages: 100,
+    connectionTimeout: 8000, // 8 seconds max connect timeout
+    greetingTimeout: 5000,   // 5 seconds max greeting timeout
+    socketTimeout: 10000,    // 10 seconds max socket timeout
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,

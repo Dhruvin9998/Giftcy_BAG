@@ -89,17 +89,11 @@ export const signup = async (req, res, next) => {
 
       await userExists.save();
 
-      try {
-        await sendOTPEmail(userExists.email, otp);
-      } catch (err) {
-        console.error(`Failed to send verification email to ${userExists.email}:`, err.message);
+      // Dispatch OTP email in background (non-blocking) so HTTP API responds in < 100ms
+      sendOTPEmail(userExists.email, otp).catch((err) => {
+        console.error(`[Async OTP Email Failed for ${userExists.email}]:`, err.message);
         console.warn(`[OTP Code Fallback for ${userExists.email}] is: ${otp}`);
-        return new ApiResponse(
-          200,
-          { email: userExists.email, emailFailed: true },
-          'Verification code generated. We had trouble delivering the email, but you can request a resend.'
-        ).send(res);
-      }
+      });
 
       return new ApiResponse(
         200,
@@ -132,18 +126,11 @@ export const signup = async (req, res, next) => {
     await user.save();
     console.log('[Save Result] User saved successfully in database. ID:', user._id);
 
-    // Send OTP verification email
-    try {
-      await sendOTPEmail(user.email, otp);
-    } catch (err) {
-      console.error(`Failed to send verification email to ${user.email}:`, err.message);
+    // Dispatch OTP email in background (non-blocking) so HTTP API responds in < 100ms
+    sendOTPEmail(user.email, otp).catch((err) => {
+      console.error(`[Async OTP Email Failed for ${user.email}]:`, err.message);
       console.warn(`[OTP Code Fallback for ${user.email}] is: ${otp}`);
-      return new ApiResponse(
-        201,
-        { email: user.email, emailFailed: true },
-        'Account created successfully. We had trouble delivering the verification email, but you can try resending the OTP code.'
-      ).send(res);
-    }
+    });
 
     new ApiResponse(
       201,
@@ -229,21 +216,16 @@ export const resendOTP = async (req, res, next) => {
     user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    let emailFailed = false;
-    try {
-      await sendOTPEmail(user.email, otp);
-    } catch (err) {
-      console.error(`Failed to resend verification email to ${user.email}:`, err.message);
+    // Dispatch OTP email in background (non-blocking) so HTTP API responds in < 100ms
+    sendOTPEmail(user.email, otp).catch((err) => {
+      console.error(`[Async OTP Resend Failed for ${user.email}]:`, err.message);
       console.warn(`[OTP Code Fallback for ${user.email}] is: ${otp}`);
-      emailFailed = true;
-    }
+    });
 
     new ApiResponse(
       200,
-      { email: user.email, emailFailed },
-      emailFailed
-        ? 'We had trouble delivering the verification email. You can retrieve the code directly.'
-        : 'A new verification code has been sent to your email.'
+      { email: user.email },
+      'A new verification code has been sent to your email.'
     ).send(res);
   } catch (error) {
     next(error);
@@ -284,19 +266,16 @@ export const login = async (req, res, next) => {
       user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
 
-      let emailFailed = false;
-      try {
-        await sendOTPEmail(user.email, otp);
-      } catch (err) {
-        console.error('Failed to send OTP email during login:', err.message);
+      // Dispatch OTP email in background (non-blocking)
+      sendOTPEmail(user.email, otp).catch((err) => {
+        console.error(`[Async Login OTP Failed for ${user.email}]:`, err.message);
         console.warn(`[OTP Code Fallback for ${user.email}] is: ${otp}`);
-        emailFailed = true;
-      }
+      });
 
       // Return a structured response instead of an error so the frontend can handle the OTP flow
       return new ApiResponse(
         200,
-        { requiresVerification: true, email: user.email, emailFailed },
+        { requiresVerification: true, email: user.email },
         'Your account is not verified yet. A verification code has been sent to your email.'
       ).send(res);
     }
