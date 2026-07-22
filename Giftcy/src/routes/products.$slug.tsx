@@ -189,23 +189,10 @@ function PDP() {
 
   const { products: dbProductsList } = useProducts();
   const related = useMemo(() => {
-    // 1. Get products in the same category (excluding current product)
-    const sameCategory = dbProductsList.filter(
-      (p) => p.category === product.category && p.slug !== product.slug
-    );
-    
-    // 2. If we have 4 or more, just return them
-    if (sameCategory.length >= 4) {
-      return sameCategory.slice(0, 4);
-    }
-    
-    // 3. Otherwise, find other products from different categories to fill the remaining slots
-    const sameCategorySlugs = new Set(sameCategory.map((p) => p.slug));
-    const others = dbProductsList.filter(
-      (p) => p.slug !== product.slug && !sameCategorySlugs.has(p.slug)
-    );
-    
-    return [...sameCategory, ...others].slice(0, 4);
+    // Get products strictly in the same category (excluding current product)
+    return dbProductsList
+      .filter((p) => p.category === product.category && p.slug !== product.slug)
+      .slice(0, 4);
   }, [dbProductsList, product.category, product.slug]);
 
   const handleShare = () => {
