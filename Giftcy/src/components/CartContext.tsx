@@ -164,6 +164,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const size = opts?.size ?? "M";
     const color = opts?.color ?? "Ivory";
 
+    // Optimistically update the UI state immediately
+    const tempItem = mapGuestItemToCartItem({ product, qty, size, color });
+    const rollbackItems = [...items];
+
+    setItems((prev) => {
+      const idx = prev.findIndex(
+        (it) => it.product.slug === product.slug && it.size === size && it.color === color
+      );
+      let next = [...prev];
+      if (idx >= 0) {
+        const currentQty = next[idx].qty + qty;
+        next[idx] = {
+          ...next[idx],
+          qty: currentQty,
+          quantity: currentQty,
+          totalPrice: next[idx].price * currentQty,
+        };
+      } else {
+        next.push(tempItem);
+      }
+      return next;
+    });
+
+    toast.success(`${product.name} added to cart`);
+    setOpen(true);
+
     if (user) {
       try {
         const response = await apiClient.post("/cart", {
@@ -179,34 +205,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
               .filter((item: any) => item.product !== null)
               .map(mapDbItemToCartItem)
           );
-          toast.success(`${product.name} added to cart`);
         }
       } catch (error: any) {
-        toast.error(error.message || "Failed to add item to database cart");
+        console.error("Failed to sync cart item to database", error);
+        // Rollback on server failure
+        setItems(rollbackItems);
+        toast.error(error.message || "Failed to sync cart item with database");
       }
     } else {
-      // Guest local update
+      // Guest local storage update
       setItems((prev) => {
-        const i = prev.findIndex((it) => it.product.slug === product.slug && it.size === size && it.color === color);
-        let next = [];
-        if (i >= 0) {
-          next = [...prev];
-          next[i] = mapGuestItemToCartItem({ ...next[i], qty: next[i].qty + qty });
-        } else {
-          next = [...prev, mapGuestItemToCartItem({ product, qty, size, color })];
-        }
-        localStorage.setItem("giftcy_cart", JSON.stringify(next));
-        return next;
+        localStorage.setItem("giftcy_cart", JSON.stringify(prev));
+        return prev;
       });
-      toast.success(`${product.name} added to local cart`);
     }
-    setOpen(true);
   };
 
   const remove = async (slug: string) => {
-    // Find item to get its product.id
     const item = items.find((i) => i.product.slug === slug);
     if (!item) return;
+
+    const rollbackItems = [...items];
+
+    // Optimistically update the UI state immediately
+    setItems((prev) => prev.filter((i) => i.product.slug !== slug));
+    toast.success(`${item.product.name} removed from cart`);
 
     if (user) {
       try {
@@ -218,17 +241,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
               .filter((item: any) => item.product !== null)
               .map(mapDbItemToCartItem)
           );
-          toast.success(`${item.product.name} removed from cart`);
         }
       } catch (error: any) {
-        toast.error(error.message || "Failed to remove item from cart");
+        console.error("Failed to remove item from server cart", error);
+        setItems(rollbackItems);
+        toast.error(error.message || "Failed to remove item from server cart");
       }
     } else {
       // Guest local update
       setItems((prev) => {
-        const next = prev.filter((i) => i.product.slug !== slug);
-        localStorage.setItem("giftcy_cart", JSON.stringify(next));
-        return next;
+        localStorage.setItem("giftcy_cart", JSON.stringify(prev));
+        return prev;
       });
     }
   };
@@ -237,6 +260,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const safeQty = Math.max(1, qty);
     const item = items.find((i) => i.product.slug === slug);
     if (!item) return;
+
+    const rollbackItems = [...items];
+
+    // Optimistically update the UI state immediately
+    setItems((prev) =>
+      prev.map((i) =>
+        i.product.slug === slug
+          ? {
+              ...i,
+              qty: safeQty,
+              quantity: safeQty,
+              totalPrice: i.price * safeQty,
+            }
+          : i
+      )
+    );
 
     if (user) {
       try {
@@ -252,14 +291,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
           );
         }
       } catch (error: any) {
-        toast.error(error.message || "Failed to update quantity");
+        console.error("Failed to update cart quantity on server", error);
+        setItems(rollbackItems);
+        toast.error(error.message || "Failed to update quantity on server");
       }
     } else {
       // Guest local update
       setItems((prev) => {
-        const next = prev.map((i) => (i.product.slug === slug ? mapGuestItemToCartItem({ ...i, qty: safeQty }) : i));
-        localStorage.setItem("giftcy_cart", JSON.stringify(next));
-        return next;
+        localStorage.setItem("giftcy_cart", JSON.stringify(prev));
+        return prev;
       });
     }
   };
