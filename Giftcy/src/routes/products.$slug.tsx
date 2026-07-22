@@ -19,11 +19,9 @@ export const Route = createFileRoute("/products/$slug")({
         return { product };
       }
     } catch (err) {
-      console.warn("Product not found in backend, falling back to static", err);
+      console.error("Product not found in backend", err);
     }
-    const product = getStaticProduct(params.slug);
-    if (!product) throw notFound();
-    return { product };
+    throw notFound();
   },
   head: ({ loaderData }) => ({
     meta: loaderData

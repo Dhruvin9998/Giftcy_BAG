@@ -94,9 +94,23 @@ export const dbToProduct = (d: DBProduct): Product => {
 };
 
 export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true }) {
-  const [list, setList] = useState<Product[]>(staticProducts);
+  const [list, setList] = useState<Product[]>([]);
   const [dbList, setDbList] = useState<DBProduct[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Restore cache on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedList = localStorage.getItem("giftcy_products_list");
+        const cachedDbList = localStorage.getItem("giftcy_products_db_list");
+        if (cachedList) setList(JSON.parse(cachedList));
+        if (cachedDbList) setDbList(JSON.parse(cachedDbList));
+      } catch (e) {
+        console.error("Failed to restore products from cache", e);
+      }
+    }
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -106,14 +120,11 @@ export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true 
         const rows = response.data.products as DBProduct[];
         setDbList(rows);
         const mapped = rows.map(dbToProduct);
-        // Merge: DB products first, then static (skip static if slug exists in db)
-        const dbSlugs = new Set(rows.map((r) => r.slug));
-        const merged = [...mapped, ...staticProducts.filter((p) => !dbSlugs.has(p.slug))];
-        setList(merged);
+        setList(mapped);
         
         if (typeof window !== "undefined") {
           localStorage.setItem("giftcy_products_db_list", JSON.stringify(rows));
-          localStorage.setItem("giftcy_products_list", JSON.stringify(merged));
+          localStorage.setItem("giftcy_products_list", JSON.stringify(mapped));
         }
       }
     } catch (err) {
