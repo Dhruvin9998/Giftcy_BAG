@@ -13,25 +13,20 @@ function cleanUrls(obj: any): any {
   
   if (typeof obj === "string") {
     let cleaned = obj;
-    const isProduction = typeof window !== "undefined" && 
-      !window.location.hostname.includes("localhost") && 
-      !window.location.hostname.includes("127.0.0.1");
-      
     const apiUrl = import.meta.env.VITE_API_URL || "";
     const backendBase = apiUrl ? apiUrl.replace(/\/api\/v1\/?$/, "") : "";
 
-    // 1. If we are on a production domain and have a backend domain configured, rewrite localhost URLs
-    if (isProduction && backendBase && !backendBase.includes("localhost") && !backendBase.includes("127.0.0.1")) {
+    // 1. If we have a remote backend domain configured, rewrite localhost URLs
+    if (backendBase && !backendBase.includes("localhost") && !backendBase.includes("127.0.0.1")) {
       if (cleaned.includes("localhost:5098") || cleaned.includes("127.0.0.1:5098")) {
         cleaned = cleaned.replace(/^https?:\/\/(localhost|127\.0\.0\.1):5098/, backendBase);
       }
     }
     
-    // 2. If the current site is loaded over HTTPS, upgrade any http:// URLs to https:// to prevent Mixed Content errors
-    if (typeof window !== "undefined" && window.location.protocol === "https:") {
-      if (cleaned.startsWith("http://")) {
-        cleaned = cleaned.replace(/^http:\/\//, "https://");
-      }
+    // 2. If the current site or backend is loaded over HTTPS, upgrade http:// to https:// to prevent Mixed Content
+    const isSecure = (typeof window !== "undefined" && window.location.protocol === "https:") || backendBase.startsWith("https://");
+    if (isSecure && cleaned.startsWith("http://")) {
+      cleaned = cleaned.replace(/^http:\/\//, "https://");
     }
     return cleaned;
   }
