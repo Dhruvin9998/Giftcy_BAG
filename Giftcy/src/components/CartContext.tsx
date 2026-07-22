@@ -83,6 +83,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Load cart from API or LocalStorage on login/logout
   const loadCart = useCallback(async () => {
     setLoading(true);
+    let dbMapped: CartItem[] = [];
+
     if (user) {
       try {
         const response = await apiClient.get("/cart");
@@ -90,67 +92,72 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const dbItems = response.data.items || [];
           
           // Map DB items to frontend CartItem format
-          const mapped = dbItems
+          dbMapped = dbItems
             .filter((item: any) => item.product !== null)
             .map(mapDbItemToCartItem);
-
-          // Merge guest cart items from localStorage if they exist
-          const localCartRaw = localStorage.getItem("giftcy_cart");
-          if (localCartRaw) {
-            try {
-              const localItems = JSON.parse(localCartRaw) as CartItem[];
-              if (localItems.length > 0) {
-                toast.info(`Syncing ${localItems.length} items from your guest cart...`);
-                // Loop through local items and add to DB cart
-                for (const it of localItems) {
-                  try {
-                    await apiClient.post("/cart", {
-                      productId: it.product.id,
-                      quantity: it.qty,
-                      size: it.size || "M",
-                      color: it.color || "Ivory",
-                    });
-                  } catch (err) {
-                    console.error("Failed to merge cart item to database", err);
-                  }
-                }
-                // Clear localStorage cart
-                localStorage.removeItem("giftcy_cart");
-                
-                // Re-fetch final merged cart
-                const mergedRes = await apiClient.get("/cart");
-                if (mergedRes?.success && mergedRes?.data) {
-                  const finalDbItems = mergedRes.data.items || [];
-                  const finalMapped = finalDbItems
-                    .filter((item: any) => item.product !== null)
-                    .map(mapDbItemToCartItem);
-                  setItems(finalMapped);
-                }
-              } else {
-                setItems(mapped);
-              }
-            } catch (e) {
-              setItems(mapped);
-            }
-          } else {
-            setItems(mapped);
-          }
         }
       } catch (error) {
         console.error("Failed to load cart from server", error);
       }
-    } else {
-      // Guest local storage loading
-      const localCart = localStorage.getItem("giftcy_cart");
-      if (localCart) {
-        try {
-          setItems(JSON.parse(localCart).map(mapGuestItemToCartItem));
-        } catch (e) {
-          setItems([]);
-        }
-      } else {
-        setItems([]);
+    }
+
+    // Load guest/custom items from localStorage
+    const localCartRaw = localStorage.getItem(user ? "giftcy_custom_cart" : "giftcy_cart");
+    let localItems: CartItem[] = [];
+    if (localCartRaw) {
+      try {
+        localItems = JSON.parse(localCartRaw).map(mapGuestItemToCartItem);
+      } catch (e) {
+        console.error(e);
       }
+    }
+
+    if (user) {
+      // Merge guest cart items from localStorage if they exist during login
+      const guestCartRaw = localStorage.getItem("giftcy_cart");
+      if (guestCartRaw) {
+        try {
+          const guestItems = JSON.parse(guestCartRaw) as CartItem[];
+          if (guestItems.length > 0) {
+            toast.info(`Syncing ${guestItems.length} items from your guest cart...`);
+            for (const it of guestItems) {
+              if (it.product.id) {
+                // Sync standard products to database cart
+                try {
+                  await apiClient.post("/cart", {
+                    productId: it.product.id,
+                    quantity: it.qty,
+                    size: it.size || "M",
+                    color: it.color || "Ivory",
+                  });
+                } catch (err) {
+                  console.error("Failed to merge cart item to database", err);
+                }
+              } else {
+                // Keep custom products in local custom cart
+                localItems.push(it);
+              }
+            }
+            // Clear guest cart and save custom cart
+            localStorage.removeItem("giftcy_cart");
+            localStorage.setItem("giftcy_custom_cart", JSON.stringify(localItems.filter(i => !i.product.id)));
+
+            // Re-fetch database cart
+            const mergedRes = await apiClient.get("/cart");
+            if (mergedRes?.success && mergedRes?.data) {
+              const finalDbItems = mergedRes.data.items || [];
+              dbMapped = finalDbItems
+                .filter((item: any) => item.product !== null)
+                .map(mapDbItemToCartItem);
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setItems([...dbMapped, ...localItems]);
+    } else {
+      setItems(localItems);
     }
     setLoading(false);
   }, [user]);
@@ -164,60 +171,96 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const size = opts?.size ?? "M";
     const color = opts?.color ?? "Ivory";
 
-    // Optimistically update the UI state immediately
-    const tempItem = mapGuestItemToCartItem({ product, qty, size, color });
-    const rollbackItems = [...items];
+    const isCustom = !product.id || product.slug.startsWith("custom-");
 
-    setItems((prev) => {
-      const idx = prev.findIndex(
-        (it) => it.product.slug === product.slug && it.size === size && it.color === color
-      );
-      let next = [...prev];
-      if (idx >= 0) {
-        const currentQty = next[idx].qty + qty;
-        next[idx] = {
-          ...next[idx],
-          qty: currentQty,
-          quantity: currentQty,
-          totalPrice: next[idx].price * currentQty,
-        };
-      } else {
-        next.push(tempItem);
-      }
-      return next;
-    });
-
-    toast.success(`${product.name} added to cart`);
-    setOpen(true);
-
-    if (user) {
-      try {
-        const response = await apiClient.post("/cart", {
-          productId: product.id,
-          quantity: qty,
-          size,
-          color,
-        });
-        if (response?.success && response?.data) {
-          const dbItems = response.data.items || [];
-          setItems(
-            dbItems
-              .filter((item: any) => item.product !== null)
-              .map(mapDbItemToCartItem)
-          );
-        }
-      } catch (error: any) {
-        console.error("Failed to sync cart item to database", error);
-        // Rollback on server failure
-        setItems(rollbackItems);
-        toast.error(error.message || "Failed to sync cart item with database");
-      }
-    } else {
-      // Guest local storage update
+    if (isCustom) {
+      // Custom Order -> Always stored in localStorage
       setItems((prev) => {
-        localStorage.setItem("giftcy_cart", JSON.stringify(prev));
-        return prev;
+        const idx = prev.findIndex(
+          (it) => it.product.slug === product.slug && it.size === size && it.color === color
+        );
+        let next = [...prev];
+        if (idx >= 0) {
+          const currentQty = next[idx].qty + qty;
+          next[idx] = {
+            ...next[idx],
+            qty: currentQty,
+            quantity: currentQty,
+            totalPrice: next[idx].price * currentQty,
+          };
+        } else {
+          next.push(mapGuestItemToCartItem({ product, qty, size, color }));
+        }
+        
+        // Save to appropriate localStorage key
+        const key = user ? "giftcy_custom_cart" : "giftcy_cart";
+        const toSave = user ? next.filter(i => !i.product.id) : next;
+        localStorage.setItem(key, JSON.stringify(toSave));
+        return next;
       });
+
+      toast.success(`${product.name} added to cart`);
+      setOpen(true);
+    } else {
+      // Standard Product -> Sync to database cart if user logged in
+      const tempItem = mapGuestItemToCartItem({ product, qty, size, color });
+      const rollbackItems = [...items];
+
+      setItems((prev) => {
+        const idx = prev.findIndex(
+          (it) => it.product.slug === product.slug && it.size === size && it.color === color
+        );
+        let next = [...prev];
+        if (idx >= 0) {
+          const currentQty = next[idx].qty + qty;
+          next[idx] = {
+            ...next[idx],
+            qty: currentQty,
+            quantity: currentQty,
+            totalPrice: next[idx].price * currentQty,
+          };
+        } else {
+          next.push(tempItem);
+        }
+        return next;
+      });
+
+      toast.success(`${product.name} added to cart`);
+      setOpen(true);
+
+      if (user) {
+        try {
+          const response = await apiClient.post("/cart", {
+            productId: product.id,
+            quantity: qty,
+            size,
+            color,
+          });
+          if (response?.success && response?.data) {
+            const dbItems = response.data.items || [];
+            const mapped = dbItems
+              .filter((item: any) => item.product !== null)
+              .map(mapDbItemToCartItem);
+            
+            // Reload custom items as well
+            const customCartRaw = localStorage.getItem("giftcy_custom_cart");
+            let customItems: CartItem[] = [];
+            if (customCartRaw) {
+              try { customItems = JSON.parse(customCartRaw); } catch (e) {}
+            }
+            setItems([...mapped, ...customItems]);
+          }
+        } catch (error: any) {
+          console.error("Failed to sync cart item to database", error);
+          setItems(rollbackItems);
+          toast.error(error.message || "Failed to sync cart item with database");
+        }
+      } else {
+        setItems((prev) => {
+          localStorage.setItem("giftcy_cart", JSON.stringify(prev));
+          return prev;
+        });
+      }
     }
   };
 
@@ -225,34 +268,52 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const item = items.find((i) => i.product.slug === slug);
     if (!item) return;
 
+    const isCustom = !item.product.id || slug.startsWith("custom-");
     const rollbackItems = [...items];
 
-    // Optimistically update the UI state immediately
     setItems((prev) => prev.filter((i) => i.product.slug !== slug));
     toast.success(`${item.product.name} removed from cart`);
 
-    if (user) {
-      try {
-        const response = await apiClient.delete(`/cart/${item.product.id}`);
-        if (response?.success && response?.data) {
-          const dbItems = response.data.items || [];
-          setItems(
-            dbItems
-              .filter((item: any) => item.product !== null)
-              .map(mapDbItemToCartItem)
-          );
+    if (isCustom) {
+      const key = user ? "giftcy_custom_cart" : "giftcy_cart";
+      const customCartRaw = localStorage.getItem(key);
+      if (customCartRaw) {
+        try {
+          const list = JSON.parse(customCartRaw) as CartItem[];
+          const next = list.filter((i) => i.product.slug !== slug);
+          localStorage.setItem(key, JSON.stringify(next));
+        } catch (e) {
+          console.error(e);
         }
-      } catch (error: any) {
-        console.error("Failed to remove item from server cart", error);
-        setItems(rollbackItems);
-        toast.error(error.message || "Failed to remove item from server cart");
       }
     } else {
-      // Guest local update
-      setItems((prev) => {
-        localStorage.setItem("giftcy_cart", JSON.stringify(prev));
-        return prev;
-      });
+      if (user) {
+        try {
+          const response = await apiClient.delete(`/cart/${item.product.id}`);
+          if (response?.success && response?.data) {
+            const dbItems = response.data.items || [];
+            const mapped = dbItems
+              .filter((item: any) => item.product !== null)
+              .map(mapDbItemToCartItem);
+            
+            const customCartRaw = localStorage.getItem("giftcy_custom_cart");
+            let customItems: CartItem[] = [];
+            if (customCartRaw) {
+              try { customItems = JSON.parse(customCartRaw); } catch (e) {}
+            }
+            setItems([...mapped, ...customItems]);
+          }
+        } catch (error: any) {
+          console.error("Failed to remove item from server cart", error);
+          setItems(rollbackItems);
+          toast.error(error.message || "Failed to remove item from server cart");
+        }
+      } else {
+        setItems((prev) => {
+          localStorage.setItem("giftcy_cart", JSON.stringify(prev));
+          return prev;
+        });
+      }
     }
   };
 
@@ -261,9 +322,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const item = items.find((i) => i.product.slug === slug);
     if (!item) return;
 
+    const isCustom = !item.product.id || slug.startsWith("custom-");
     const rollbackItems = [...items];
 
-    // Optimistically update the UI state immediately
     setItems((prev) =>
       prev.map((i) =>
         i.product.slug === slug
@@ -277,34 +338,57 @@ export function CartProvider({ children }: { children: ReactNode }) {
       )
     );
 
-    if (user) {
-      try {
-        const response = await apiClient.put(`/cart/${item.product.id}`, {
-          quantity: safeQty,
-        });
-        if (response?.success && response?.data) {
-          const dbItems = response.data.items || [];
-          setItems(
-            dbItems
-              .filter((item: any) => item.product !== null)
-              .map(mapDbItemToCartItem)
+    if (isCustom) {
+      const key = user ? "giftcy_custom_cart" : "giftcy_cart";
+      const customCartRaw = localStorage.getItem(key);
+      if (customCartRaw) {
+        try {
+          const list = JSON.parse(customCartRaw) as CartItem[];
+          const next = list.map((i) =>
+            i.product.slug === slug ? { ...i, qty: safeQty, quantity: safeQty, totalPrice: i.price * safeQty } : i
           );
+          localStorage.setItem(key, JSON.stringify(next));
+        } catch (e) {
+          console.error(e);
         }
-      } catch (error: any) {
-        console.error("Failed to update cart quantity on server", error);
-        setItems(rollbackItems);
-        toast.error(error.message || "Failed to update quantity on server");
       }
     } else {
-      // Guest local update
-      setItems((prev) => {
-        localStorage.setItem("giftcy_cart", JSON.stringify(prev));
-        return prev;
-      });
+      if (user) {
+        try {
+          const response = await apiClient.put(`/cart/${item.product.id}`, {
+            quantity: safeQty,
+          });
+          if (response?.success && response?.data) {
+            const dbItems = response.data.items || [];
+            const mapped = dbItems
+              .filter((item: any) => item.product !== null)
+              .map(mapDbItemToCartItem);
+            
+            const customCartRaw = localStorage.getItem("giftcy_custom_cart");
+            let customItems: CartItem[] = [];
+            if (customCartRaw) {
+              try { customItems = JSON.parse(customCartRaw); } catch (e) {}
+            }
+            setItems([...mapped, ...customItems]);
+          }
+        } catch (error: any) {
+          console.error("Failed to update cart quantity on server", error);
+          setItems(rollbackItems);
+          toast.error(error.message || "Failed to update quantity on server");
+        }
+      } else {
+        // Guest local update
+        setItems((prev) => {
+          localStorage.setItem("giftcy_cart", JSON.stringify(prev));
+          return prev;
+        });
+      }
     }
   };
 
   const clear = async () => {
+    localStorage.removeItem("giftcy_custom_cart");
+    localStorage.removeItem("giftcy_cart");
     if (user) {
       try {
         const response = await apiClient.delete("/cart/clear");
@@ -318,7 +402,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } else {
       setItems([]);
       setCoupon(null);
-      localStorage.removeItem("giftcy_cart");
     }
   };
 

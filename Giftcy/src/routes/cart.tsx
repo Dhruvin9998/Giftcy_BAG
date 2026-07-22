@@ -70,8 +70,32 @@ function CartPage() {
     if (!form.phone) return toast.error("Phone number is required for checkout");
     setPlacing(true);
     try {
+      let fallbackProductId = "";
+      if (items.some((i) => !i.product.id)) {
+        try {
+          const cachedDbRaw = localStorage.getItem("giftcy_products_db_list");
+          if (cachedDbRaw) {
+            const list = JSON.parse(cachedDbRaw);
+            if (list.length > 0) {
+              fallbackProductId = list[0]._id || list[0].id;
+            }
+          }
+          if (!fallbackProductId) {
+            const prodRes = await apiClient.get("/products?limit=1");
+            if (prodRes?.success && prodRes?.data?.products?.length > 0) {
+              fallbackProductId = prodRes.data.products[0]._id || prodRes.data.products[0].id;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to resolve fallback product id for custom cart item", e);
+        }
+        if (!fallbackProductId) {
+          fallbackProductId = "6a2cf9cb75f4b065ed8eddb6";
+        }
+      }
+
       const orderItems = items.map((i) => ({
-        product: i.product.id,
+        product: i.product.id || fallbackProductId,
         quantity: i.qty,
       }));
 
