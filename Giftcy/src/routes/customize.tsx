@@ -299,48 +299,13 @@ function CustomizePage() {
             </div>
           </Group>
 
-          {/* Step 04: Contact Us & WhatsApp Link Section */}
-          <Group step="04" title="Custom Monogram & Logo Printing" caption="Connect with our design team">
-            <div className="rounded-2xl border border-border bg-cream p-5 space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-full bg-[#25D366]/15 text-[#25D366] flex items-center justify-center shrink-0 mt-0.5">
-                  <MessageCircle className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground">Need Custom Embroidery, Logo Printing, or Monograms?</h4>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Chat directly with our gifting concierge on WhatsApp to send your logo photo, text monogram, or special design requirements.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3 pt-2">
-                <a
-                  href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Hi! I would like to inquire about custom monogram/logo printing for my gift bags.")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#25D366] text-white text-xs font-semibold hover:bg-[#20bd5a] transition shadow-sm"
-                >
-                  <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
-                </a>
-
-                <Link
-                  to="/contact"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-foreground text-foreground text-xs font-semibold hover:bg-foreground hover:text-background transition"
-                >
-                  Contact Us <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </div>
-          </Group>
-
           {/* Packaging */}
-          <Group step="05" title="Packaging">
+          <Group step="04" title="Packaging">
             <Pills items={PACKAGING} value={pack} onChange={setPack} />
           </Group>
 
           {/* Quantity */}
-          <Group step="06" title="Quantity">
+          <Group step="05" title="Quantity">
             <div className="flex items-center gap-4">
               <input
                 type="range"
@@ -372,6 +337,16 @@ function CustomizePage() {
           </Group>
 
           <div className="rounded-2xl border border-border bg-cream p-6">
+            <div className="space-y-3.5 mb-6 text-xs text-muted-foreground leading-relaxed">
+              <p className="flex gap-2">
+                <span className="text-gold font-bold">✦</span>
+                <span><strong>Design & Customization:</strong> Any custom logo printing, text monogramming, or bespoke design/embroidery is fully applicable to your bags. Feel free to contact our team to discuss your brand requirements!</span>
+              </p>
+              <p className="flex gap-2">
+                <span className="text-gold font-bold">✦</span>
+                <span><strong>Bulk Order Discount:</strong> Wholesale wholesale rates apply to all purchases. The price per bag decreases significantly as your order quantity increases.</span>
+              </p>
+            </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 onClick={addToCart}
