@@ -11,6 +11,7 @@ import dns from 'dns';
 const seedData = async () => {
   try {
     const categoryCount = await Category.countDocuments();
+    let activeCategories;
     if (categoryCount === 0) {
       console.log('Seeding initial categories...');
       const categories = [
@@ -19,11 +20,35 @@ const seedData = async () => {
         { name: 'Return Gift Bags', slug: 'return-gift-bags' },
         { name: 'Custom Printed Bags', slug: 'custom-printed-bags' },
       ];
-      const createdCategories = await Category.insertMany(categories);
+      activeCategories = await Category.insertMany(categories);
+    } else {
+      activeCategories = await Category.find();
+    }
 
-      const getCatId = (name) => createdCategories.find((c) => c.name === name)._id;
-
+    const productCount = await Product.countDocuments();
+    if (productCount === 0 && activeCategories.length > 0) {
       console.log('Seeding initial products...');
+      const getCatId = (name) => {
+        const found = activeCategories.find((c) => c.name === name);
+        if (found) return found._id;
+
+        // Fallbacks for polished names
+        if (name === 'Wedding Gift Bags') {
+          const polished = activeCategories.find((c) => c.slug === 'silk-satin-pouches');
+          if (polished) return polished._id;
+        }
+        if (name === 'Return Gift Bags') {
+          const polished = activeCategories.find((c) => c.slug === 'velvet-bags');
+          if (polished) return polished._id;
+        }
+        if (name === 'Custom Printed Bags') {
+          const polished = activeCategories.find((c) => c.slug === 'jute-linen-totes');
+          if (polished) return polished._id;
+        }
+
+        return activeCategories[0]?._id;
+      };
+
       const products = [
         {
           name: 'Ivory Silk Potli',
@@ -118,7 +143,7 @@ const seedData = async () => {
         },
       ];
       await Product.insertMany(products);
-      console.log('Database successfully seeded with initial categories and products.');
+      console.log('Database successfully seeded with initial products.');
     }
 
     const settingsCount = await Settings.countDocuments();
