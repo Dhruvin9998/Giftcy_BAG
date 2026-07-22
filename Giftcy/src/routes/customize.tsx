@@ -409,7 +409,7 @@ function CustomizePage() {
                 href={`https://wa.me/${waNumber}?text=${encodeURIComponent(getWhatsAppMessage())}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2.5 px-7 py-4.5 rounded-full bg-emerald text-white text-xs font-bold tracking-wider uppercase hover:bg-emerald/90 transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
+                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2.5 px-7 py-4.5 rounded-full bg-[#25D366] text-white text-xs font-bold tracking-wider uppercase hover:bg-[#22c35e] transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
               >
                 <MessageCircle className="h-4 w-4" /> WhatsApp Us
               </a>
