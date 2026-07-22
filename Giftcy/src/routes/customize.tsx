@@ -121,18 +121,22 @@ function CustomizePage() {
   };
 
   return (
-    <>
+    <div className="relative overflow-hidden bg-cream/15 min-h-screen">
+      {/* Decorative blurred gradients */}
+      <div className="absolute top-[5%] left-[-15%] w-[40rem] h-[40rem] rounded-full bg-gold/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[45%] right-[-15%] w-[45rem] h-[45rem] rounded-full bg-gold/5 blur-[150px] pointer-events-none" />
+
       {/* HERO */}
-      <section className="mx-auto max-w-7xl px-5 lg:px-10 pt-12 lg:pt-20 pb-8 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background/60">
-          <Sparkles className="h-3.5 w-3.5 text-gold" />
-          <span className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground">Bespoke Studio</span>
+      <section className="mx-auto max-w-7xl px-5 lg:px-10 pt-16 lg:pt-24 pb-10 text-center relative z-10">
+        <div className="inline-flex items-center gap-2 px-4.5 py-2 rounded-full border border-gold/25 bg-background/60 shadow-soft backdrop-blur-sm">
+          <Sparkles className="h-3.5 w-3.5 text-gold animate-pulse" />
+          <span className="text-[10px] tracking-[0.25em] uppercase text-gold font-bold">Bespoke Design Studio</span>
         </div>
-        <h1 className="serif text-5xl lg:text-7xl mt-5 leading-[1.02] text-balance">
-          Design your own <em className="text-gold not-italic">gift bag</em>
+        <h1 className="serif text-5xl lg:text-7xl mt-6 leading-[1.02] text-balance">
+          Design your own <em className="text-gold not-italic font-serif">gift bag</em>
         </h1>
-        <p className="mt-5 text-muted-foreground max-w-xl mx-auto">
-          Curate fabric, color, size, and packaging. Watch your piece come to life.
+        <p className="mt-5 text-muted-foreground text-sm max-w-xl mx-auto leading-relaxed">
+          Curate premium fabrics, rich colors, custom dimensions, and elegant packaging. Watch your personalized creation come to life instantly.
         </p>
       </section>
 
@@ -144,19 +148,22 @@ function CustomizePage() {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="relative aspect-[4/5] rounded-[2rem] overflow-hidden shadow-luxury bg-cream"
+            className="relative aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-luxury bg-cream border border-border/60 hover:shadow-hover transition duration-500"
             style={{ background: FABRICS.find((x) => x.id === fabric)!.swatch }}
           >
+            {/* Soft vignette shading overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-black/5 pointer-events-none" />
+
             {/* Bag shape */}
-            <div className="absolute inset-0 flex items-center justify-center p-12">
-              <svg viewBox="0 0 300 380" className="h-full w-full drop-shadow-2xl">
+            <div className="absolute inset-0 flex items-center justify-center p-12 drop-shadow-[0_25px_25px_rgba(0,0,0,0.15)]">
+              <svg viewBox="0 0 300 380" className="h-full w-full">
                 <defs>
                   <linearGradient id="bagFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color} stopOpacity="0.95" />
                     <stop offset="100%" stopColor={color} stopOpacity="1" />
                   </linearGradient>
                   <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="white" stopOpacity="0.25" />
+                    <stop offset="0%" stopColor="white" stopOpacity="0.2" />
                     <stop offset="60%" stopColor="white" stopOpacity="0" />
                   </linearGradient>
                 </defs>
@@ -166,7 +173,7 @@ function CustomizePage() {
                 <path
                   d="M55 80 Q55 75 60 75 L240 75 Q245 75 245 80 L260 350 Q260 360 250 360 L50 360 Q40 360 40 350 Z"
                   fill="url(#bagFill)"
-                  stroke="rgba(0,0,0,0.15)"
+                  stroke="rgba(0,0,0,0.12)"
                   strokeWidth="1"
                 />
                 <path
@@ -178,10 +185,9 @@ function CustomizePage() {
               </svg>
             </div>
 
-            <div className="absolute top-5 left-5 px-3 py-1.5 rounded-full bg-background/85 backdrop-blur text-[10px] tracking-[0.2em] uppercase">
-              Live Preview
+            <div className="absolute top-5 left-5 px-3 py-1.5 rounded-full bg-white/80 border border-white/50 backdrop-blur text-[9px] font-bold tracking-[0.2em] uppercase text-foreground shadow-sm">
+              ✨ Live Preview
             </div>
-
           </motion.div>
 
           {/* Summary chips */}
@@ -201,22 +207,31 @@ function CustomizePage() {
         <div className="space-y-10">
           {/* Fabric */}
           <Group step="01" title="Choose your fabric">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {FABRICS.map((f) => {
                 const active = fabric === f.id;
                 return (
                   <button
                     key={f.id}
                     onClick={() => setFabric(f.id)}
-                    className={`text-left rounded-xl border p-3 transition ${active ? "border-foreground shadow-soft" : "border-border hover:border-foreground/40"}`}
+                    className={`text-left rounded-2xl border p-4 transition-all duration-300 relative overflow-hidden bg-background ${
+                      active
+                        ? "border-gold ring-1 ring-gold shadow-luxury transform -translate-y-0.5"
+                        : "border-border hover:border-foreground/30 hover:shadow-soft"
+                    }`}
                   >
-                    <div className="h-16 rounded-lg" style={{ background: f.swatch }} />
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className="text-sm font-medium">{f.label}</span>
-                      {active && <Check className="h-4 w-4 text-gold" />}
+                    <div className="h-20 rounded-xl shadow-inner relative overflow-hidden border border-black/5" style={{ background: f.swatch }}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{f.blurb}</p>
-
+                    <div className="mt-3.5 flex items-center justify-between">
+                      <span className="text-sm font-semibold tracking-tight">{f.label}</span>
+                      {active && (
+                        <div className="h-5 w-5 rounded-full bg-gold/15 flex items-center justify-center shrink-0">
+                          <Check className="h-3 w-3 text-gold" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">{f.blurb}</p>
                   </button>
                 );
               })}
@@ -225,7 +240,7 @@ function CustomizePage() {
 
           {/* Color */}
           <Group step="02" title="Pick a color" caption={colorLabel}>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3.5">
               {COLORS.map((c) => {
                 const active = color.toLowerCase() === c.hex.toLowerCase();
                 return (
@@ -233,7 +248,11 @@ function CustomizePage() {
                     key={c.id}
                     onClick={() => { setColor(c.hex); setColorLabel(c.label); }}
                     aria-label={c.label}
-                    className={`relative h-12 w-12 rounded-full transition ${active ? "ring-2 ring-offset-2 ring-foreground" : "ring-1 ring-border hover:ring-foreground/40"}`}
+                    className={`relative h-11 w-11 rounded-full transition-all duration-300 transform hover:scale-110 shadow-sm ${
+                      active
+                        ? "ring-2 ring-offset-2 ring-gold scale-110 shadow-luxury"
+                        : "ring-1 ring-border hover:ring-foreground/45"
+                    }`}
                     style={{ background: c.hex }}
                   >
                     {active && <Check className="h-4 w-4 absolute inset-0 m-auto text-white mix-blend-difference" />}
@@ -246,10 +265,10 @@ function CustomizePage() {
                 <button
                   type="button"
                   title="Pick any custom color"
-                  className={`relative h-12 w-12 rounded-full flex items-center justify-center transition overflow-hidden ${
+                  className={`relative h-11 w-11 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 overflow-hidden ${
                     !COLORS.some((c) => c.hex.toLowerCase() === color.toLowerCase())
-                      ? "ring-2 ring-offset-2 ring-foreground"
-                      : "ring-1 ring-border hover:ring-foreground/40"
+                      ? "ring-2 ring-offset-2 ring-gold scale-110 shadow-luxury"
+                      : "ring-1 ring-border hover:ring-foreground/45"
                   }`}
                   style={{
                     background: !COLORS.some((c) => c.hex.toLowerCase() === color.toLowerCase())
@@ -273,8 +292,8 @@ function CustomizePage() {
               </div>
 
               {/* Direct HEX Code Input */}
-              <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full border border-border bg-background text-xs">
-                <span className="text-muted-foreground font-mono">#</span>
+              <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-border bg-background text-xs shadow-sm transition hover:border-foreground/30">
+                <span className="text-muted-foreground font-mono font-semibold">#</span>
                 <input
                   type="text"
                   maxLength={6}
@@ -286,8 +305,8 @@ function CustomizePage() {
                     const match = COLORS.find((c) => c.hex.toLowerCase() === fullHex.toLowerCase());
                     setColorLabel(match ? match.label : `Custom (${fullHex.toUpperCase()})`);
                   }}
-                  placeholder="HEX Code"
-                  className="w-20 bg-transparent font-mono uppercase focus:outline-none text-foreground font-medium"
+                  placeholder="HEX"
+                  className="w-14 bg-transparent font-mono uppercase focus:outline-none text-foreground font-semibold"
                 />
               </div>
             </div>
@@ -382,7 +401,7 @@ function CustomizePage() {
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 onClick={addToCart}
-                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-foreground text-background text-sm hover:bg-foreground/90"
+                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2.5 px-7 py-4.5 rounded-full bg-foreground text-background text-xs font-bold tracking-wider uppercase hover:bg-foreground/90 transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
               >
                 <ShoppingBag className="h-4 w-4" /> Add Custom Order
               </button>
@@ -390,37 +409,39 @@ function CustomizePage() {
                 href={`https://wa.me/${waNumber}?text=${encodeURIComponent(getWhatsAppMessage())}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#25D366] text-white text-sm font-medium hover:bg-[#20bd5a] transition"
+                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2.5 px-7 py-4.5 rounded-full bg-emerald text-white text-xs font-bold tracking-wider uppercase hover:bg-emerald/90 transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
               >
                 <MessageCircle className="h-4 w-4" /> WhatsApp Us
               </a>
               <Link
                 to="/contact"
-                className="h-12 w-12 rounded-full border border-border flex items-center justify-center hover:text-gold"
+                className="h-14 w-14 rounded-full border border-border flex items-center justify-center hover:border-gold hover:text-gold transition duration-300 transform hover:scale-105 shrink-0 bg-background"
                 title="Contact Us"
               >
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-4 text-center">
+            <p className="text-[11px] text-muted-foreground mt-5 text-center font-medium">
               Sample dispatch in 4–6 days · Bulk delivery in 14–21 days · Free design consultation
             </p>
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }
 
 function Group({ step, title, caption, children }: { step: string; title: string; caption?: string; children: React.ReactNode }) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-4">
-        <h3 className="serif text-2xl">
-          <span className="text-gold text-sm tracking-[0.25em] mr-3">{step}</span>
+    <div className="border-b border-border/60 pb-8 last:border-none">
+      <div className="flex items-baseline justify-between mb-5">
+        <h3 className="serif text-2xl flex items-center gap-3">
+          <span className="text-[10px] tracking-[0.25em] font-bold font-mono h-6.5 w-6.5 rounded-full bg-gold/10 text-gold flex items-center justify-center shrink-0">
+            {step}
+          </span>
           {title}
         </h3>
-        {caption && <span className="text-xs text-muted-foreground">{caption}</span>}
+        {caption && <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{caption}</span>}
       </div>
       {children}
     </div>
@@ -444,7 +465,11 @@ function Pills<T extends { id: string; label: string; price: number }>({
           <button
             key={it.id}
             onClick={() => onChange(it.id)}
-            className={`px-4 py-2.5 rounded-full border text-sm transition ${active ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground/40"}`}
+            className={`px-6 py-3.5 rounded-full border text-[11px] tracking-wider uppercase font-semibold transition-all duration-300 ${
+              active
+                ? "border-gold bg-foreground text-background shadow-luxury"
+                : "border-border hover:border-foreground/45 hover:bg-cream/20"
+            }`}
           >
             {it.label}
           </button>
