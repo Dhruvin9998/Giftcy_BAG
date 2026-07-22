@@ -401,27 +401,27 @@ function CustomizePage() {
                 <span><strong>Bulk Order Discount:</strong> Wholesale rates apply to all purchases. The price per bag decreases significantly as your order quantity increases.</span>
               </p>
             </div>
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-2.5 items-center">
               <button
                 onClick={addToCart}
-                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2.5 px-7 py-4.5 rounded-full bg-foreground text-background text-xs font-bold tracking-wider uppercase hover:bg-foreground/90 transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
+                className="flex-1 min-w-[150px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-foreground text-background text-xs font-bold tracking-wider uppercase hover:bg-foreground/90 transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
               >
-                <ShoppingBag className="h-4 w-4" /> Add Custom Order
+                <ShoppingBag className="h-3.5 w-3.5" /> Add Custom Order
               </button>
               <a
                 href={`https://wa.me/${waNumber}?text=${encodeURIComponent(getWhatsAppMessage())}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2.5 px-7 py-4.5 rounded-full bg-[#25D366] text-white text-xs font-bold tracking-wider uppercase hover:bg-[#22c35e] transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
+                className="flex-1 min-w-[150px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#25D366] text-white text-xs font-bold tracking-wider uppercase hover:bg-[#22c35e] transition duration-300 hover:shadow-luxury hover:-translate-y-0.5 transform"
               >
-                <MessageCircle className="h-4 w-4" /> WhatsApp Us
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp Us
               </a>
               <Link
                 to="/contact"
-                className="h-14 w-14 rounded-full border border-border flex items-center justify-center hover:border-gold hover:text-gold transition duration-300 transform hover:scale-105 shrink-0 bg-background"
+                className="h-10 w-10 rounded-full border border-border flex items-center justify-center hover:border-gold hover:text-gold transition duration-300 transform hover:scale-105 shrink-0 bg-background"
                 title="Contact Us"
               >
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             <p className="text-[11px] text-muted-foreground mt-5 text-center font-medium">
