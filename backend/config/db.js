@@ -25,9 +25,8 @@ const seedData = async () => {
       activeCategories = await Category.find();
     }
 
-    const productCount = await Product.countDocuments();
-    if (productCount === 0 && activeCategories.length > 0) {
-      console.log('Seeding initial products...');
+    if (activeCategories.length > 0) {
+      console.log('Checking and seeding missing initial products...');
       const getCatId = (name) => {
         const found = activeCategories.find((c) => c.name === name);
         if (found) return found._id;
@@ -142,8 +141,21 @@ const seedData = async () => {
           isBestSeller: true,
         },
       ];
-      await Product.insertMany(products);
-      console.log('Database successfully seeded with initial products.');
+
+      let seededCount = 0;
+      for (const p of products) {
+        const exists = await Product.findOne({ slug: p.slug });
+        if (!exists) {
+          await Product.create(p);
+          console.log(`[Database Seeder] Successfully seeded missing product: ${p.name}`);
+          seededCount++;
+        }
+      }
+      if (seededCount > 0) {
+        console.log(`[Database Seeder] Successfully seeded ${seededCount} missing products.`);
+      } else {
+        console.log('[Database Seeder] No missing products to seed.');
+      }
     }
 
     const settingsCount = await Settings.countDocuments();
