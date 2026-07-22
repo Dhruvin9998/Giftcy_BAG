@@ -240,7 +240,7 @@ function CustomizePage() {
 
           {/* Color */}
           <Group step="02" title="Pick a color" caption={colorLabel}>
-            <div className="flex flex-wrap items-center gap-3.5">
+            <div className="flex flex-wrap items-center gap-2">
               {COLORS.map((c) => {
                 const active = color.toLowerCase() === c.hex.toLowerCase();
                 return (
@@ -248,14 +248,14 @@ function CustomizePage() {
                     key={c.id}
                     onClick={() => { setColor(c.hex); setColorLabel(c.label); }}
                     aria-label={c.label}
-                    className={`relative h-11 w-11 rounded-full transition-all duration-300 transform hover:scale-110 shadow-sm ${
+                    className={`relative h-8 w-8 rounded-full transition-all duration-300 transform hover:scale-110 shadow-sm ${
                       active
                         ? "ring-2 ring-offset-2 ring-gold scale-110 shadow-luxury"
                         : "ring-1 ring-border hover:ring-foreground/45"
                     }`}
                     style={{ background: c.hex }}
                   >
-                    {active && <Check className="h-4 w-4 absolute inset-0 m-auto text-white mix-blend-difference" />}
+                    {active && <Check className="h-3 w-3 absolute inset-0 m-auto text-white mix-blend-difference" />}
                   </button>
                 );
               })}
@@ -265,7 +265,7 @@ function CustomizePage() {
                 <button
                   type="button"
                   title="Pick any custom color"
-                  className={`relative h-11 w-11 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 overflow-hidden ${
+                  className={`relative h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 overflow-hidden ${
                     !COLORS.some((c) => c.hex.toLowerCase() === color.toLowerCase())
                       ? "ring-2 ring-offset-2 ring-gold scale-110 shadow-luxury"
                       : "ring-1 ring-border hover:ring-foreground/45"
@@ -276,7 +276,7 @@ function CustomizePage() {
                       : "conic-gradient(from 180deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
                   }}
                 >
-                  <Palette className="h-5 w-5 text-white drop-shadow mix-blend-difference" />
+                  <Palette className="h-3.5 w-3.5 text-white drop-shadow mix-blend-difference" />
                   <input
                     type="color"
                     value={color.startsWith("#") && color.length === 7 ? color : "#c8a24b"}
@@ -292,7 +292,7 @@ function CustomizePage() {
               </div>
 
               {/* Direct HEX Code Input */}
-              <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-border bg-background text-xs shadow-sm transition hover:border-foreground/30">
+              <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border bg-background text-[11px] shadow-sm transition hover:border-foreground/30">
                 <span className="text-muted-foreground font-mono font-semibold">#</span>
                 <input
                   type="text"
@@ -306,7 +306,7 @@ function CustomizePage() {
                     setColorLabel(match ? match.label : `Custom (${fullHex.toUpperCase()})`);
                   }}
                   placeholder="HEX"
-                  className="w-14 bg-transparent font-mono uppercase focus:outline-none text-foreground font-semibold"
+                  className="w-11 bg-transparent font-mono uppercase focus:outline-none text-foreground font-semibold"
                 />
               </div>
             </div>
