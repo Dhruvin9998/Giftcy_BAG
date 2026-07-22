@@ -295,33 +295,71 @@ function CustomizePage() {
 
           {/* Size */}
           <Group step="03" title="Select size">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-              {SIZES.map((s) => {
+            {/* Standard Sizes */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {SIZES.filter((s) => s.id !== "custom").map((s) => {
                 const active = size === s.id;
                 return (
                   <button
                     key={s.id}
                     onClick={() => setSize(s.id)}
-                    className={`rounded-xl border p-3 text-left transition ${active ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground/40"}`}
+                    className={`rounded-xl border p-3.5 text-left transition ${active ? "border-foreground bg-foreground text-background shadow-soft" : "border-border hover:border-foreground/40"}`}
                   >
-                    <div className="text-sm font-medium">{s.label}</div>
-                    <div className={`text-[11px] mt-0.5 ${active ? "text-background/70" : "text-muted-foreground"}`}>{s.dims}</div>
+                    <div className="text-sm font-semibold">{s.label}</div>
+                    <div className={`text-[11px] mt-1 ${active ? "text-background/70" : "text-muted-foreground"}`}>{s.dims}</div>
                   </button>
                 );
               })}
             </div>
 
-            {size === "custom" && (
-              <div className="mt-3.5 space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Specify your custom dimensions:</label>
-                <input
-                  type="text"
-                  value={customSize}
-                  onChange={(e) => setCustomSize(e.target.value)}
-                  placeholder="e.g., 20 × 25 cm or 8 × 10 inches"
-                  className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-1 focus:ring-foreground bg-background"
-                />
+            {/* Custom/Bespoke Size Card */}
+            <button
+              onClick={() => setSize("custom")}
+              className={`w-full mt-3 rounded-xl border p-4 text-left transition flex items-center justify-between ${
+                size === "custom"
+                  ? "border-foreground bg-foreground text-background shadow-soft"
+                  : "border-dashed border-border hover:border-foreground/60 bg-cream/20 hover:bg-cream/40"
+              }`}
+            >
+              <div>
+                <div className="text-sm font-semibold flex items-center gap-1.5">
+                  <span>📏 Custom Dimensions</span>
+                  <span className="text-[9px] tracking-wider uppercase bg-gold/15 text-gold px-1.5 py-0.5 rounded font-bold">Bespoke</span>
+                </div>
+                <p className={`text-[11px] mt-1 ${size === "custom" ? "text-background/70" : "text-muted-foreground"}`}>
+                  Provide custom dimensions to fit your specific packaging requirements.
+                </p>
               </div>
+              <Check className={`h-4 w-4 text-gold shrink-0 transition-transform ${size === "custom" ? "scale-100" : "scale-0"}`} />
+            </button>
+
+            {/* Custom dimensions inputs box */}
+            {size === "custom" && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-3.5 p-4.5 rounded-2xl border border-border bg-cream/40 space-y-3.5 shadow-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />
+                  <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">Specify dimensions</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customSize}
+                    onChange={(e) => setCustomSize(e.target.value)}
+                    placeholder="e.g., Width × Height × Gusset (e.g., 20 × 25 × 8 cm)"
+                    className="w-full pl-4 pr-16 py-3 rounded-xl border border-border text-sm focus:outline-none focus:ring-1 focus:ring-foreground bg-background transition-shadow hover:shadow-sm"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground select-none pointer-events-none uppercase tracking-wide">
+                    cm / inch
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  💡 Enter your dimensions in any format. Our design team will verify the fit with your items after you place the order.
+                </p>
+              </motion.div>
             )}
           </Group>
 
