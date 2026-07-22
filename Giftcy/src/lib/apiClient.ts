@@ -66,9 +66,10 @@ async function request(method: string, endpoint: string, body?: any, options: Re
 
   const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
   
-  // Set up request timeout (4s for GET to prevent SSR timeout, 60s for other methods like uploads)
+  // Set up request timeout (6s for GET on SSR to prevent SSR timeout, 30s on browser client to allow cold starts / slow networks)
+  const isServer = typeof window === "undefined";
   const isGet = method.toUpperCase() === "GET";
-  const timeoutMs = isGet ? 4000 : 60000;
+  const timeoutMs = isGet ? (isServer ? 6000 : 30000) : 60000;
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
