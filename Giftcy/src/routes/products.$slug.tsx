@@ -7,7 +7,7 @@ import { useCart } from "@/components/CartContext";
 import { useWishlist } from "@/components/WishlistContext";
 import { useAuth } from "@/components/AuthContext";
 import { apiClient } from "@/lib/apiClient";
-import { dbToProduct, type DBProduct } from "@/lib/useProducts";
+import { useProducts, dbToProduct, type DBProduct } from "@/lib/useProducts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/products/$slug")({
@@ -187,7 +187,8 @@ function PDP() {
     }
   };
 
-  const related = products.filter((p) => p.slug !== product.slug).slice(0, 4);
+  const { products: dbProductsList } = useProducts();
+  const related = dbProductsList.filter((p) => p.slug !== product.slug).slice(0, 4);
 
   const handleShare = () => {
     if (navigator.clipboard) {
