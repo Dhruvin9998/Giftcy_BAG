@@ -45,6 +45,7 @@ const SIZES = [
   { id: "M", label: "Medium", dims: "22 × 28 cm", price: 30 },
   { id: "L", label: "Large", dims: "28 × 34 cm", price: 70 },
   { id: "XL", label: "X-Large", dims: "34 × 42 cm", price: 110 },
+  { id: "custom", label: "Custom Size", dims: "Custom dimensions", price: 0 },
 ];
 
 const PACKAGING = [
@@ -61,8 +62,9 @@ function CustomizePage() {
   const [color, setColor] = useState(COLORS[1].hex);
   const [colorLabel, setColorLabel] = useState(COLORS[1].label);
   const [size, setSize] = useState("M");
+  const [customSize, setCustomSize] = useState("");
   const [pack, setPack] = useState("kraft");
-  const [qty, setQty] = useState(25);
+  const [qty, setQty] = useState(1);
   const [waNumber, setWaNumber] = useState("919999999999");
 
   useEffect(() => {
@@ -90,7 +92,19 @@ function CustomizePage() {
   const discount = qty >= 100 ? 0.15 : qty >= 50 ? 0.1 : qty >= 25 ? 0.05 : 0;
   const finalTotal = Math.round(total * (1 - discount));
 
+  const getWhatsAppMessage = () => {
+    const fabLabel = FABRICS.find((x) => x.id === fabric)!.label;
+    const sizeLabel = size === "custom" ? `Custom Size (${customSize || "Not specified yet"})` : `Size ${size}`;
+    const packLabel = PACKAGING.find((x) => x.id === pack)!.label;
+    return `Hi! I would like to inquire about a custom gift bag order:
+- Fabric: ${fabLabel}
+- Color: ${colorLabel}
+- Size: ${sizeLabel}
+- Packaging: ${packLabel}`;
+  };
+
   const addToCart = () => {
+    const selectedSizeLabel = size === "custom" ? `Custom (${customSize || "Not Specified"})` : size;
     const product: Product = {
       slug: `custom-${Date.now()}`,
       name: `Custom ${FABRICS.find((x) => x.id === fabric)!.label} Bag`,
@@ -100,10 +114,10 @@ function CustomizePage() {
       mrp: Math.round(price * 1.3),
       image: hero,
       colors: [colorLabel],
-      sizes: [size],
-      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${size}.`,
+      sizes: [selectedSizeLabel],
+      description: `Custom ${FABRICS.find((x) => x.id === fabric)!.label.toLowerCase()} bag in ${colorLabel}, size ${selectedSizeLabel}.`,
     };
-    add(product, { size, color: colorLabel, qty });
+    add(product, { size: selectedSizeLabel, color: colorLabel, qty });
   };
 
   return (
@@ -175,7 +189,7 @@ function CustomizePage() {
             {[
               FABRICS.find((x) => x.id === fabric)!.label,
               colorLabel,
-              `Size ${size}`,
+              size === "custom" ? `Custom Size: ${customSize || "Pending"}` : `Size ${size}`,
               PACKAGING.find((x) => x.id === pack)!.label,
             ].map((s) => (
               <span key={s} className="px-3 py-1.5 rounded-full bg-cream border border-border">{s}</span>
@@ -281,7 +295,7 @@ function CustomizePage() {
 
           {/* Size */}
           <Group step="03" title="Select size">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
               {SIZES.map((s) => {
                 const active = size === s.id;
                 return (
@@ -292,48 +306,28 @@ function CustomizePage() {
                   >
                     <div className="text-sm font-medium">{s.label}</div>
                     <div className={`text-[11px] mt-0.5 ${active ? "text-background/70" : "text-muted-foreground"}`}>{s.dims}</div>
-
                   </button>
                 );
               })}
             </div>
+
+            {size === "custom" && (
+              <div className="mt-3.5 space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">Specify your custom dimensions:</label>
+                <input
+                  type="text"
+                  value={customSize}
+                  onChange={(e) => setCustomSize(e.target.value)}
+                  placeholder="e.g., 20 × 25 cm or 8 × 10 inches"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-1 focus:ring-foreground bg-background"
+                />
+              </div>
+            )}
           </Group>
 
           {/* Packaging */}
           <Group step="04" title="Packaging">
             <Pills items={PACKAGING} value={pack} onChange={setPack} />
-          </Group>
-
-          {/* Quantity */}
-          <Group step="05" title="Quantity">
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min={1}
-                max={500}
-                value={qty}
-                onChange={(e) => setQty(Number(e.target.value))}
-                className="flex-1 accent-foreground"
-              />
-              <input
-                type="number"
-                min={1}
-                value={qty}
-                onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
-                className="w-20 px-3 py-2 rounded-xl border border-border text-center text-sm"
-              />
-            </div>
-            <div className="mt-3 flex gap-2 flex-wrap">
-              {[10, 25, 50, 100, 250].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setQty(n)}
-                  className={`px-3 py-1.5 rounded-full text-xs border transition ${qty === n ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground/40"}`}
-                >
-                  {n} pcs
-                </button>
-              ))}
-            </div>
           </Group>
 
           <div className="rounded-2xl border border-border bg-cream p-6">
@@ -344,7 +338,7 @@ function CustomizePage() {
               </p>
               <p className="flex gap-2">
                 <span className="text-gold font-bold">✦</span>
-                <span><strong>Bulk Order Discount:</strong> Wholesale wholesale rates apply to all purchases. The price per bag decreases significantly as your order quantity increases.</span>
+                <span><strong>Bulk Order Discount:</strong> Wholesale rates apply to all purchases. The price per bag decreases significantly as your order quantity increases.</span>
               </p>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
@@ -355,7 +349,7 @@ function CustomizePage() {
                 <ShoppingBag className="h-4 w-4" /> Add Custom Order
               </button>
               <a
-                href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Hi! I would like to inquire about a custom gift bag order.")}`}
+                href={`https://wa.me/${waNumber}?text=${encodeURIComponent(getWhatsAppMessage())}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#25D366] text-white text-sm font-medium hover:bg-[#20bd5a] transition"
