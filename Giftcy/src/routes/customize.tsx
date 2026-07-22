@@ -207,40 +207,43 @@ function CustomizePage() {
         <div className="space-y-10">
           {/* Fabric */}
           <Group step="01" title="Choose your fabric">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {FABRICS.map((f) => {
                 const active = fabric === f.id;
                 return (
                   <button
                     key={f.id}
                     onClick={() => setFabric(f.id)}
-                    className={`text-left rounded-2xl border p-4 transition-all duration-300 relative overflow-hidden bg-background ${
+                    className={`text-left rounded-xl border p-2.5 transition-all duration-300 relative overflow-hidden bg-background ${
                       active
                         ? "border-gold ring-1 ring-gold shadow-luxury transform -translate-y-0.5"
                         : "border-border hover:border-foreground/30 hover:shadow-soft"
                     }`}
                   >
-                    <div className="h-20 rounded-xl shadow-inner relative overflow-hidden border border-black/5" style={{ background: f.swatch }}>
+                    <div className="h-10 rounded-lg shadow-inner relative overflow-hidden border border-black/5" style={{ background: f.swatch }}>
                       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
                     </div>
-                    <div className="mt-3.5 flex items-center justify-between">
-                      <span className="text-sm font-semibold tracking-tight">{f.label}</span>
+                    <div className="mt-2.5 flex items-center justify-between gap-1">
+                      <span className="text-[11px] font-bold tracking-tight truncate">{f.label}</span>
                       {active && (
-                        <div className="h-5 w-5 rounded-full bg-gold/15 flex items-center justify-center shrink-0">
-                          <Check className="h-3 w-3 text-gold" />
+                        <div className="h-4.5 w-4.5 rounded-full bg-gold/15 flex items-center justify-center shrink-0">
+                          <Check className="h-2.5 w-2.5 text-gold" />
                         </div>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">{f.blurb}</p>
                   </button>
                 );
               })}
             </div>
+            {/* Dynamic Single Fabric Blurb Caption */}
+            <p className="text-xs text-muted-foreground mt-3.5 text-center italic font-medium leading-relaxed bg-cream/10 py-1.5 rounded-lg border border-border/20">
+              💡 {FABRICS.find((x) => x.id === fabric)!.blurb}
+            </p>
           </Group>
 
           {/* Color */}
           <Group step="02" title="Pick a color" caption={colorLabel}>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3.5">
               {COLORS.map((c) => {
                 const active = color.toLowerCase() === c.hex.toLowerCase();
                 return (
@@ -248,14 +251,14 @@ function CustomizePage() {
                     key={c.id}
                     onClick={() => { setColor(c.hex); setColorLabel(c.label); }}
                     aria-label={c.label}
-                    className={`relative h-8 w-8 rounded-full transition-all duration-300 transform hover:scale-110 shadow-sm ${
+                    className={`relative h-11 w-11 rounded-full transition-all duration-300 transform hover:scale-110 shadow-sm ${
                       active
                         ? "ring-2 ring-offset-2 ring-gold scale-110 shadow-luxury"
                         : "ring-1 ring-border hover:ring-foreground/45"
                     }`}
                     style={{ background: c.hex }}
                   >
-                    {active && <Check className="h-3 w-3 absolute inset-0 m-auto text-white mix-blend-difference" />}
+                    {active && <Check className="h-4 w-4 absolute inset-0 m-auto text-white mix-blend-difference" />}
                   </button>
                 );
               })}
@@ -265,7 +268,7 @@ function CustomizePage() {
                 <button
                   type="button"
                   title="Pick any custom color"
-                  className={`relative h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 overflow-hidden ${
+                  className={`relative h-11 w-11 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 overflow-hidden ${
                     !COLORS.some((c) => c.hex.toLowerCase() === color.toLowerCase())
                       ? "ring-2 ring-offset-2 ring-gold scale-110 shadow-luxury"
                       : "ring-1 ring-border hover:ring-foreground/45"
@@ -276,7 +279,7 @@ function CustomizePage() {
                       : "conic-gradient(from 180deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
                   }}
                 >
-                  <Palette className="h-3.5 w-3.5 text-white drop-shadow mix-blend-difference" />
+                  <Palette className="h-5 w-5 text-white drop-shadow mix-blend-difference" />
                   <input
                     type="color"
                     value={color.startsWith("#") && color.length === 7 ? color : "#c8a24b"}
@@ -292,7 +295,7 @@ function CustomizePage() {
               </div>
 
               {/* Direct HEX Code Input */}
-              <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border bg-background text-[11px] shadow-sm transition hover:border-foreground/30">
+              <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-border bg-background text-xs shadow-sm transition hover:border-foreground/30">
                 <span className="text-muted-foreground font-mono font-semibold">#</span>
                 <input
                   type="text"
@@ -306,7 +309,7 @@ function CustomizePage() {
                     setColorLabel(match ? match.label : `Custom (${fullHex.toUpperCase()})`);
                   }}
                   placeholder="HEX"
-                  className="w-11 bg-transparent font-mono uppercase focus:outline-none text-foreground font-semibold"
+                  className="w-14 bg-transparent font-mono uppercase focus:outline-none text-foreground font-semibold"
                 />
               </div>
             </div>
