@@ -62,18 +62,6 @@ const seedData = async () => {
           isFeatured: true,
         },
         {
-          name: 'Regal Gold Embroidered',
-          slug: 'regal-gold-embroidered',
-          description: 'An opulent gold-embroidered fabric bag with traditional motifs. Perfect for shagun, sangeet favors, and festive gifting.',
-          price: 329,
-          compareAtPrice: 449,
-          images: ['https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&auto=format&fit=crop&q=60'],
-          category: getCatId('Wedding Gift Bags'),
-          stock: 100,
-          isNewArrival: true,
-          isFeatured: true,
-        },
-        {
           name: 'Blush Tassel Pouch',
           slug: 'blush-tassel-pouch',
           description: 'Soft blush fabric pouch finished with a hand-knotted gold tassel. A delicate, reusable favor for birthdays and intimate celebrations.',
@@ -81,17 +69,6 @@ const seedData = async () => {
           compareAtPrice: 229,
           images: ['https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=60'],
           category: getCatId('Return Gift Bags'),
-          stock: 100,
-          isFeatured: true,
-        },
-        {
-          name: 'Monogram Linen Tote',
-          slug: 'monogram-linen-tote',
-          description: 'Premium linen tote with gold foil monogram. Ideal for corporate gifting, hampers, and bespoke wedding favors.',
-          price: 299,
-          compareAtPrice: 399,
-          images: ['https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=60'],
-          category: getCatId('Custom Printed Bags'),
           stock: 100,
           isFeatured: true,
         },
@@ -313,13 +290,13 @@ const seedData = async () => {
       // Link products to the new collections
       // Wedding collection products
       await Product.updateMany(
-        { name: { $in: ['Ivory Silk Potli', 'Regal Gold Embroidered', 'Maroon Velvet Potli', 'Pearl White Envelope Bag'] } },
+        { name: { $in: ['Ivory Silk Potli', 'Maroon Velvet Potli', 'Pearl White Envelope Bag'] } },
         { $addToSet: { collections: weddingCol._id } }
       );
 
       // Festive collection products
       await Product.updateMany(
-        { name: { $in: ['Regal Gold Embroidered', 'Maroon Velvet Potli', 'Festive Brocade Box Bag'] } },
+        { name: { $in: ['Maroon Velvet Potli', 'Festive Brocade Box Bag'] } },
         { $addToSet: { collections: festiveCol._id } }
       );
 
@@ -331,7 +308,7 @@ const seedData = async () => {
 
       // Birthday collection products
       await Product.updateMany(
-        { name: { $in: ['Blush Tassel Pouch', 'Monogram Linen Tote'] } },
+        { name: { $in: ['Blush Tassel Pouch'] } },
         { $addToSet: { collections: birthdayCol._id } }
       );
 
