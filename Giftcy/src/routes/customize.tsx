@@ -118,7 +118,7 @@ function CustomizePage() {
           Design your own <em className="text-gold not-italic">gift bag</em>
         </h1>
         <p className="mt-5 text-muted-foreground max-w-xl mx-auto">
-          Curate fabric, color, size, and packaging. Watch your piece come to life — priced instantly.
+          Curate fabric, color, size, and packaging. Watch your piece come to life.
         </p>
       </section>
 
@@ -167,9 +167,7 @@ function CustomizePage() {
             <div className="absolute top-5 left-5 px-3 py-1.5 rounded-full bg-background/85 backdrop-blur text-[10px] tracking-[0.2em] uppercase">
               Live Preview
             </div>
-            <div className="absolute bottom-5 right-5 px-4 py-2 rounded-full bg-foreground text-background text-xs">
-              ₹{price} <span className="opacity-60">/ pc</span>
-            </div>
+
           </motion.div>
 
           {/* Summary chips */}
@@ -204,7 +202,7 @@ function CustomizePage() {
                       {active && <Check className="h-4 w-4 text-gold" />}
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{f.blurb}</p>
-                    <p className="text-[11px] text-gold mt-1">+ ₹{f.price}</p>
+
                   </button>
                 );
               })}
@@ -294,7 +292,7 @@ function CustomizePage() {
                   >
                     <div className="text-sm font-medium">{s.label}</div>
                     <div className={`text-[11px] mt-0.5 ${active ? "text-background/70" : "text-muted-foreground"}`}>{s.dims}</div>
-                    <div className={`text-[11px] mt-1 ${active ? "text-gold-soft" : "text-gold"}`}>+ ₹{s.price}</div>
+
                   </button>
                 );
               })}
@@ -342,7 +340,7 @@ function CustomizePage() {
           </Group>
 
           {/* Quantity */}
-          <Group step="06" title="Quantity" caption={discount ? `${Math.round(discount * 100)}% bulk discount applied` : "Tip: 25+ unlocks discounts"}>
+          <Group step="06" title="Quantity">
             <div className="flex items-center gap-4">
               <input
                 type="range"
@@ -373,27 +371,7 @@ function CustomizePage() {
             </div>
           </Group>
 
-          {/* Totals */}
           <div className="rounded-2xl border border-border bg-cream p-6">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Unit price</span>
-              <span>₹{price}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm mt-2">
-              <span className="text-muted-foreground">Quantity</span>
-              <span>× {qty}</span>
-            </div>
-            {discount > 0 && (
-              <div className="flex items-center justify-between text-sm mt-2 text-gold">
-                <span>Bulk discount</span>
-                <span>− ₹{total - finalTotal}</span>
-              </div>
-            )}
-            <div className="gold-divider my-4" />
-            <div className="flex items-baseline justify-between">
-              <span className="serif text-xl">Total</span>
-              <span className="serif text-3xl">₹{finalTotal.toLocaleString("en-IN")}</span>
-            </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 onClick={addToCart}
@@ -462,7 +440,6 @@ function Pills<T extends { id: string; label: string; price: number }>({
             className={`px-4 py-2.5 rounded-full border text-sm transition ${active ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground/40"}`}
           >
             {it.label}
-            {it.price > 0 && <span className={`ml-2 text-[11px] ${active ? "text-gold-soft" : "text-gold"}`}>+₹{it.price}</span>}
           </button>
         );
       })}
