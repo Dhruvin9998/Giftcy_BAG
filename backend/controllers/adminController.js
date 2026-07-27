@@ -3,6 +3,7 @@ import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Coupon from '../models/Coupon.js';
 import Contact from '../models/Contact.js';
+import Review from '../models/Review.js';
 import ApiError from '../utils/apiError.js';
 import ApiResponse from '../utils/apiResponse.js';
 import { sendContactFormEmail } from '../services/emailService.js';
@@ -549,6 +550,88 @@ export const getStockStatus = async (req, res, next) => {
     });
 
     new ApiResponse(200, stockData, 'Stock status compiled successfully.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get all reviews (for review management panel)
+ * @route   GET /api/v1/admin/reviews
+ * @access  Private/Admin
+ */
+export const getAllReviews = async (req, res, next) => {
+  try {
+    const reviews = await Review.find()
+      .populate('product', 'name slug')
+      .populate('user', 'name email')
+      .sort('-createdAt');
+    new ApiResponse(200, reviews, 'All reviews retrieved.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Update review details or status
+ * @route   PUT /api/v1/admin/reviews/:id
+ * @access  Private/Admin
+ */
+export const updateReviewByAdmin = async (req, res, next) => {
+  try {
+    const { status, rating, comment } = req.body;
+    const review = await Review.findById(req.params.id);
+
+    if (!review) {
+      return next(new ApiError(404, 'Review not found'));
+    }
+
+    if (status !== undefined) {
+      const validStatuses = ['Pending', 'Approved', 'Rejected'];
+      if (!validStatuses.includes(status)) {
+        return next(new ApiError(400, 'Invalid status selection'));
+      }
+      review.status = status;
+    }
+
+    if (rating !== undefined) {
+      review.rating = Number(rating);
+    }
+
+    if (comment !== undefined) {
+      review.comment = comment;
+    }
+
+    await review.save();
+    
+    // Recalculate average rating
+    await Review.calculateAverageRating(review.product);
+
+    new ApiResponse(200, review, 'Review updated successfully.').send(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Delete a review by admin
+ * @route   DELETE /api/v1/admin/reviews/:id
+ * @access  Private/Admin
+ */
+export const deleteReviewByAdmin = async (req, res, next) => {
+  try {
+    const review = await Review.findById(req.params.id);
+
+    if (!review) {
+      return next(new ApiError(404, 'Review not found'));
+    }
+
+    await Review.findByIdAndDelete(req.params.id);
+    
+    // Recalculate average rating
+    await Review.calculateAverageRating(review.product);
+
+    new ApiResponse(200, null, 'Review deleted successfully.').send(res);
   } catch (error) {
     next(error);
   }

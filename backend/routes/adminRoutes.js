@@ -13,6 +13,9 @@ import {
   updateSupportMessageStatus,
   deleteSupportMessage,
   replySupportMessage,
+  getAllReviews,
+  updateReviewByAdmin,
+  deleteReviewByAdmin,
 } from '../controllers/adminController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 
@@ -42,5 +45,11 @@ router.delete('/support-messages/:id', authorize('admin'), deleteSupportMessage)
 // Order management
 router.get('/orders', authorize('admin', 'staff'), getAllOrders);
 router.put('/orders/:id/status', authorize('admin', 'staff'), updateOrderStatus);
+
+// Review management
+router.get('/reviews', authorize('admin', 'staff'), getAllReviews);
+router.route('/reviews/:id')
+  .put(authorize('admin'), updateReviewByAdmin)
+  .delete(authorize('admin'), deleteReviewByAdmin);
 
 export default router;
