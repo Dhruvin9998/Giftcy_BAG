@@ -160,7 +160,7 @@ export function Header() {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-foreground/30" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-[78%] max-w-sm bg-background p-6 shadow-2xl animate-in slide-in-from-left">
+          <div className="absolute left-0 top-0 h-full w-[78%] max-w-sm bg-[#faf8f5] p-6 shadow-2xl animate-in slide-in-from-left">
             <div className="flex items-center justify-between mb-8">
               <span className="serif text-2xl font-semibold">{brandName}</span>
               <button onClick={() => setOpen(false)} aria-label="Close"><X className="h-5 w-5" /></button>

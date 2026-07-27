@@ -9,7 +9,7 @@ export function CartDrawer() {
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-foreground/40 animate-in fade-in" onClick={() => setOpen(false)} />
-      <aside className="absolute right-0 top-0 h-full w-full sm:w-[440px] bg-background shadow-2xl flex flex-col animate-in slide-in-from-right">
+      <aside className="absolute right-0 top-0 h-full w-full sm:w-[440px] bg-[#faf8f5] shadow-2xl flex flex-col animate-in slide-in-from-right">
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h3 className="serif text-2xl">Your Cart</h3>
           <button onClick={() => setOpen(false)} aria-label="Close"><X className="h-5 w-5" /></button>
