@@ -24,7 +24,8 @@ export const addReview = async (req, res, next) => {
       return next(new ApiError(404, 'Product not found'));
     }
 
-    // Verified Purchase Check: Check if user has ordered this product
+    // Verified Purchase Check: Bypassed to allow logged-in users to submit reviews
+    /*
     const hasPurchased = await Order.findOne({
       user: req.user.id,
       status: 'Delivered',
@@ -34,6 +35,7 @@ export const addReview = async (req, res, next) => {
     if (!hasPurchased) {
       return next(new ApiError(403, 'You can only review products you have purchased and received (Delivered).'));
     }
+    */
 
     // Check if user already reviewed this product
     const alreadyReviewed = await Review.findOne({
