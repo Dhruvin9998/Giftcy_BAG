@@ -71,7 +71,15 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      
+      // Disable caching for SSR HTML pages and server action responses
+      const newResponse = new Response(normalized.body, normalized);
+      newResponse.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      newResponse.headers.set("Pragma", "no-cache");
+      newResponse.headers.set("Expires", "0");
+      newResponse.headers.set("Surrogate-Control", "no-store");
+      return newResponse;
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();

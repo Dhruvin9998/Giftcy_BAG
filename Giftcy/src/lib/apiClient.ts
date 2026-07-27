@@ -59,11 +59,17 @@ async function request(method: string, endpoint: string, body?: any, options: Re
     headers.set("Authorization", `Bearer ${token}`);
   }
 
+  const isGet = method.toUpperCase() === "GET";
+  if (isGet) {
+    headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    headers.set("Pragma", "no-cache");
+    headers.set("Expires", "0");
+  }
+
   const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
   
   // Set up request timeout (6s for GET on SSR to prevent SSR timeout, 30s on browser client to allow cold starts / slow networks)
   const isServer = typeof window === "undefined";
-  const isGet = method.toUpperCase() === "GET";
   const timeoutMs = isGet ? (isServer ? 6000 : 30000) : 60000;
   
   const controller = new AbortController();
