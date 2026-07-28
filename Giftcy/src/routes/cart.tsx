@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Tag, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/components/CartContext";
 import { apiClient } from "@/lib/apiClient";
 import { useAuth } from "@/components/AuthContext";
+import { validateIndianPincode } from "@/lib/pincode";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({ meta: [{ title: "Your Cart — Giftcy" }] }),
@@ -46,6 +47,63 @@ function CartPage() {
     pincode: "",
   });
 
+  const [pincodeSettings, setPincodeSettings] = useState<{ mode: string; pincodes: string } | null>(null);
+  const [isPincodeChecking, setIsPincodeChecking] = useState(false);
+  const [pincodeError, setPincodeError] = useState("");
+  const [codNotAllowed, setCodNotAllowed] = useState(false);
+
+  useEffect(() => {
+    const fetchPincodeSettings = async () => {
+      try {
+        const res = await apiClient.get("/settings");
+        if (res?.success && res?.data?.pincode_settings) {
+          setPincodeSettings(res.data.pincode_settings);
+        }
+      } catch (err) {
+        console.error("Failed to load pincode settings", err);
+      }
+    };
+    fetchPincodeSettings();
+  }, []);
+
+  useEffect(() => {
+    if (form.pincode.length === 6) {
+      const checkPincode = async () => {
+        setIsPincodeChecking(true);
+        setPincodeError("");
+        setCodNotAllowed(false);
+        const result = await validateIndianPincode(form.pincode, pincodeSettings);
+        setIsPincodeChecking(false);
+        if (result.valid) {
+          if (result.serviceable) {
+            setForm((prev) => ({
+              ...prev,
+              city: result.city || prev.city,
+              state: result.state || prev.state,
+            }));
+            setCodNotAllowed(false);
+          } else {
+            setPincodeError("Standard shipping is unavailable for this pincode.");
+            setCodNotAllowed(true);
+            if (paymentMethod === "COD") {
+              setPaymentMethod("Razorpay");
+            }
+          }
+        } else {
+          setPincodeError(result.error || "Invalid pincode.");
+          setCodNotAllowed(true);
+          if (paymentMethod === "COD") {
+            setPaymentMethod("Razorpay");
+          }
+        }
+      };
+      checkPincode();
+    } else {
+      setPincodeError("");
+      setCodNotAllowed(false);
+    }
+  }, [form.pincode, pincodeSettings]);
+
   const apply = async () => {
     setApplying(true);
     const r = await applyCoupon(code);
@@ -68,6 +126,12 @@ function CartPage() {
       return toast.error("Please fill all shipping details");
     }
     if (!form.phone) return toast.error("Phone number is required for checkout");
+    if (pincodeError) {
+      return toast.error(pincodeError);
+    }
+    if (codNotAllowed && paymentMethod === "COD") {
+      return toast.error("Cash on Delivery (COD) is not available for this pincode.");
+    }
     setPlacing(true);
     try {
       let fallbackProductId = "";
@@ -289,7 +353,20 @@ function CartPage() {
                 <input className="i" placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
                 <input className="i" placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
               </div>
-              <input className="i" placeholder="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} />
+              <div>
+                <input 
+                  className="i" 
+                  placeholder="Pincode" 
+                  maxLength={6} 
+                  value={form.pincode} 
+                  onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "") })} 
+                />
+                {isPincodeChecking && <p className="text-[10px] text-muted-foreground mt-1 px-1">Checking delivery availability...</p>}
+                {pincodeError && <p className="text-[10px] text-destructive mt-1 px-1">{pincodeError}</p>}
+                {!isPincodeChecking && !pincodeError && form.pincode.length === 6 && (
+                  <p className="text-[10px] text-emerald-700 mt-1 px-1">🟢 Delivery & COD Available</p>
+                )}
+              </div>
               
               {/* Payment Method */}
               <div className="mt-4 pt-3 border-t border-border">
@@ -297,9 +374,14 @@ function CartPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
+                    disabled={codNotAllowed}
                     onClick={() => setPaymentMethod("COD")}
                     className={`py-2.5 px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
-                      paymentMethod === "COD" ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"
+                      codNotAllowed
+                        ? "border-border bg-muted/20 text-muted-foreground cursor-not-allowed opacity-50"
+                        : paymentMethod === "COD"
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border hover:border-foreground"
                     }`}
                   >
                     Cash on Delivery
@@ -314,6 +396,11 @@ function CartPage() {
                     Online (Razorpay)
                   </button>
                 </div>
+                {codNotAllowed && (
+                  <p className="text-[10px] text-destructive mt-2 px-1 text-center font-medium">
+                    ⚠️ Cash on Delivery (COD) is not available for this pincode.
+                  </p>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-between items-baseline">

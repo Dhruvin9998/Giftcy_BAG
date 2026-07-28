@@ -9,6 +9,7 @@ import { useAuth } from "@/components/AuthContext";
 import { apiClient } from "@/lib/apiClient";
 import { useProducts, dbToProduct, type DBProduct } from "@/lib/useProducts";
 import { toast } from "sonner";
+import { validateIndianPincode } from "@/lib/pincode";
 
 export const Route = createFileRoute("/products/$slug")({
   loader: async ({ params }) => {
@@ -86,6 +87,7 @@ function PDP() {
   const [pincode, setPincode] = useState("");
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "available" | "unavailable">("idle");
   const [pincodeSettings, setPincodeSettings] = useState<{ mode: string; pincodes: string } | null>(null);
+  const [pincodeDetails, setPincodeDetails] = useState<{ city?: string; state?: string; error?: string } | null>(null);
 
   // Reviews states
   const [reviews, setReviews] = useState<any[]>([]);
@@ -115,6 +117,7 @@ function PDP() {
     }
     setPincode("");
     setPincodeStatus("idle");
+    setPincodeDetails(null);
     fetchReviews();
   }, [product]);
 
@@ -133,36 +136,23 @@ function PDP() {
     }
   };
 
-  const handleCheckPincode = (e: React.FormEvent) => {
+  const handleCheckPincode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(pincode)) {
       toast.error("Please enter a valid 6-digit pincode");
       return;
     }
     setPincodeStatus("loading");
+    setPincodeDetails(null);
 
-    const mode = pincodeSettings?.mode || "blacklist";
-    const listStr = pincodeSettings?.pincodes || "7, 8";
-    const patterns = listStr
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-
-    setTimeout(() => {
-      const isMatched = patterns.some((pattern) => pincode.startsWith(pattern));
-      let available = false;
-      if (mode === "whitelist") {
-        available = isMatched;
-      } else {
-        available = !isMatched;
-      }
-
-      if (available) {
-        setPincodeStatus("available");
-      } else {
-        setPincodeStatus("unavailable");
-      }
-    }, 600);
+    const result = await validateIndianPincode(pincode, pincodeSettings);
+    if (result.valid && result.serviceable) {
+      setPincodeStatus("available");
+      setPincodeDetails({ city: result.city, state: result.state });
+    } else {
+      setPincodeStatus("unavailable");
+      setPincodeDetails({ error: result.error || "Delivery is not available for this area." });
+    }
   };
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -456,13 +446,13 @@ function PDP() {
               </button>
             </form>
             {pincodeStatus === "available" && (
-              <p className="text-xs text-emerald-700 font-medium mt-2 flex items-center gap-1">
-                <span>🟢</span> Delivery Available! Expected delivery: 3–5 business days. COD available.
+              <p className="text-xs text-emerald-700 font-medium mt-2 flex items-center gap-1 flex-wrap">
+                <span>🟢</span> Delivery Available{pincodeDetails?.city ? ` to ${pincodeDetails.city}, ${pincodeDetails.state}` : ""}! Expected delivery: 3–5 business days. COD available.
               </p>
             )}
             {pincodeStatus === "unavailable" && (
               <p className="text-xs text-destructive font-medium mt-2 flex items-center gap-1">
-                <span>🔴</span> Sorry, standard delivery is currently unavailable to this pincode.
+                <span>🔴</span> {pincodeDetails?.error || "Sorry, standard delivery is currently unavailable to this pincode."}
               </p>
             )}
           </div>
