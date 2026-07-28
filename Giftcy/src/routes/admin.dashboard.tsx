@@ -84,7 +84,8 @@ type Tab =
   | "media-library"
   | "bulk-inquiries"
   | "custom-printing"
-  | "customer-support";
+  | "customer-support"
+  | "pincodes";
 
 function AdminDashboardPage() {
   const { user, signOut, loading } = useAuth();
@@ -207,6 +208,7 @@ function AdminDashboardPage() {
       title: "System Parameters",
       items: [
         { id: "settings" as Tab, label: "Website Settings", icon: SettingsIcon, role: "admin" },
+        { id: "pincodes" as Tab, label: "Pincode Manager", icon: Truck, role: "admin" },
       ]
     }
   ];
@@ -357,6 +359,7 @@ function AdminDashboardPage() {
               {tab === "coupons" && <CouponsAdmin />}
               {tab === "blogs" && <BlogsAdmin />}
               {tab === "settings" && <SettingsAdmin />}
+              {tab === "pincodes" && <PincodeManager />}
               {tab === "menu-cms" && <MenuCMS />}
               {tab === "media-library" && <MediaLibrary />}
             </>
@@ -3670,6 +3673,229 @@ function SettingsAdmin() {
         <button onClick={save} disabled={saving} className="px-8 py-2.5 bg-foreground text-background text-sm font-semibold rounded-full shadow-lg">
           {saving ? "Saving Configurations..." : "Save Website Settings"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────
+   19. PINCODE MANAGER (Serviceable Pincodes CMS)
+   ──────────────────────────────────────────────────────── */
+function PincodeManager() {
+  const [pincodes, setPincodes] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newPincode, setNewPincode] = useState("");
+  const [search, setSearch] = useState("");
+  const [bulkInput, setBulkInput] = useState("");
+  const [showBulk, setShowBulk] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get("/settings");
+      if (res?.success && Array.isArray(res.data?.serviceable_pincodes)) {
+        setPincodes(res.data.serviceable_pincodes);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load serviceable pincodes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = async (updatedList: string[]) => {
+    setSaving(true);
+    try {
+      await apiClient.put("/settings/serviceable_pincodes", { value: updatedList });
+      setPincodes(updatedList);
+      toast.success("Serviceable pincodes updated successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save pincodes");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddSingle = () => {
+    const pin = newPincode.trim();
+    if (!/^\d{6}$/.test(pin)) {
+      return toast.error("Please enter a valid 6-digit pincode.");
+    }
+    if (pincodes.includes(pin)) {
+      return toast.error("Pincode is already in the list.");
+    }
+    const newList = [...pincodes, pin].sort();
+    save(newList);
+    setNewPincode("");
+  };
+
+  const handleAddBulk = () => {
+    const pins = bulkInput
+      .split(/[,\n]/)
+      .map((p) => p.trim())
+      .filter((p) => /^\d{6}$/.test(p));
+
+    if (pins.length === 0) {
+      return toast.error("No valid 6-digit pincodes found in input.");
+    }
+
+    const uniquePins = Array.from(new Set([...pincodes, ...pins])).sort();
+    save(uniquePins);
+    setBulkInput("");
+    setShowBulk(false);
+  };
+
+  const handleDelete = (pinToDelete: string) => {
+    if (confirm(`Remove ${pinToDelete} from serviceable pincodes?`)) {
+      const newList = pincodes.filter((pin) => pin !== pinToDelete);
+      save(newList);
+    }
+  };
+
+  const handleClearAll = () => {
+    if (confirm("Are you sure you want to delete ALL serviceable pincodes? This will block delivery for all codes.")) {
+      save([]);
+    }
+  };
+
+  const filtered = pincodes.filter((pin) => pin.includes(search.trim()));
+
+  if (loading && pincodes.length === 0) {
+    return <div className="py-20 text-center text-muted-foreground animate-pulse font-serif">Compiling serviceable pincodes…</div>;
+  }
+
+  return (
+    <div className="space-y-6 animate-in fade-in max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="serif text-3xl font-semibold">Pincode Manager</h2>
+          <p className="text-xs text-muted-foreground mt-1">Manage the list of serviceable pincodes. Customers can only checkout if their pincode is in this list.</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowBulk(!showBulk)}
+            className="px-4 py-2 border border-border bg-white text-xs font-semibold rounded-full hover:bg-cream/20 transition"
+          >
+            {showBulk ? "Single Entry Mode" : "Bulk Import Mode"}
+          </button>
+          {pincodes.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="px-4 py-2 border border-red-200 text-red-600 bg-white text-xs font-semibold rounded-full hover:bg-red-50 transition"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Left column: Add Pincode */}
+        <div className="md:col-span-1 space-y-4">
+          <div className="bg-white border border-border rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 className="text-xs uppercase tracking-widest text-gold font-bold">
+              {showBulk ? "Bulk Import" : "Add Serviceable Pincode"}
+            </h3>
+
+            {showBulk ? (
+              <div className="space-y-3">
+                <p className="text-[10px] text-muted-foreground">Enter pincodes separated by commas or new lines.</p>
+                <textarea
+                  rows={6}
+                  value={bulkInput}
+                  onChange={(e) => setBulkInput(e.target.value)}
+                  placeholder="e.g. 110001, 380009, 400001"
+                  className="w-full p-3 rounded-xl border border-border bg-transparent text-xs focus:border-gold outline-none resize-none font-sans"
+                />
+                <button
+                  onClick={handleAddBulk}
+                  disabled={saving}
+                  className="w-full py-2.5 bg-foreground text-background text-xs font-semibold rounded-full shadow-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  Import Pincodes
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={newPincode}
+                  onChange={(e) => setNewPincode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Enter 6-digit Pincode"
+                  className="w-full px-3 py-2 border border-border rounded-xl text-xs focus:border-gold outline-none bg-transparent"
+                />
+                <button
+                  onClick={handleAddSingle}
+                  disabled={saving}
+                  className="w-full py-2.5 bg-foreground text-background text-xs font-semibold rounded-full shadow-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  Add Pincode
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-cream/10 border border-[#EADFC9]/60 rounded-2xl p-5 text-xs text-muted-foreground leading-relaxed">
+            <h4 className="font-semibold text-gold mb-1.5">Info & Rules</h4>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>Pincodes must be exactly 6 numeric digits.</li>
+              <li>Only pincodes present in this manager list will be shown as <b>available</b> to customers.</li>
+              <li>When a customer types an available pincode at checkout, COD option will be enabled and delivery details will auto-fill.</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Right column: List of Pincodes */}
+        <div className="md:col-span-2 bg-white border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden max-h-[600px]">
+          <div className="p-4 border-b border-border bg-cream/10 flex items-center justify-between gap-4 shrink-0">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/60" />
+              <input
+                type="text"
+                placeholder="Search active pincodes..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-border/80 rounded-xl bg-white text-xs outline-none focus:border-gold transition"
+              />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+              Total: {pincodes.length}
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+            {filtered.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground font-sans">
+                {search ? "No matches found." : "No serviceable pincodes added yet."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {filtered.map((pin) => (
+                  <div
+                    key={pin}
+                    className="flex items-center justify-between px-3 py-2 border border-border rounded-xl bg-background group hover:border-gold transition"
+                  >
+                    <span className="font-mono text-xs font-semibold text-foreground">{pin}</span>
+                    <button
+                      onClick={() => handleDelete(pin)}
+                      className="text-muted-foreground hover:text-red-500 text-[10px] p-0.5 rounded-full hover:bg-red-50 transition flex items-center justify-center h-5 w-5"
+                      title="Delete"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
