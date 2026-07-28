@@ -88,7 +88,42 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                  if (registrations.length > 0) {
+                    var unregisteredAny = false;
+                    var promises = registrations.map(function(registration) {
+                      return registration.unregister().then(function(result) {
+                        if (result) unregisteredAny = true;
+                      });
+                    });
+                    Promise.all(promises).then(function() {
+                      if (unregisteredAny) {
+                        if ('caches' in window) {
+                          caches.keys().then(function(names) {
+                            return Promise.all(names.map(function(name) {
+                              return caches.delete(name);
+                            }));
+                          }).then(function() {
+                            window.location.reload();
+                          });
+                        } else {
+                          window.location.reload();
+                        }
+                      }
+                    });
+                  }
+                });
+              }
+            `,
+          }}
+        />
+      </head>
       <body>{children}<Scripts /></body>
     </html>
   );
