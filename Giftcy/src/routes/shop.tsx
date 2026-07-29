@@ -33,10 +33,17 @@ function Shop() {
   const [occasion, setOccasion] = useState("All");
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [maxPrice, setMaxPrice] = useState<number>(1000);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [sort, setSort] = useState<string>("featured");
   const { products, loading } = useProducts();
   const [categories, setCategories] = useState<any[]>([]);
+
+  // Dynamically calculate the highest price in the catalog
+  const highestPrice = products.length > 0 
+    ? Math.max(...products.map(p => p.price)) 
+    : 1000;
+  const maxLimit = Math.max(highestPrice, 100);
+  const currentMaxPrice = maxPrice ?? maxLimit;
 
   useEffect(() => {
     // 1. Restore from cache on mount
@@ -105,7 +112,7 @@ function Shop() {
     if (selectedSize && !p.sizes.includes(selectedSize)) return false;
 
     // 4. Price Filter
-    if (p.price > maxPrice) return false;
+    if (p.price > currentMaxPrice) return false;
 
     return true;
   });
@@ -230,27 +237,27 @@ function Shop() {
             <input
               type="range"
               min={100}
-              max={1000}
-              step={50}
-              value={maxPrice}
+              max={maxLimit}
+              step={maxLimit > 500 ? 50 : 10}
+              value={currentMaxPrice}
               onChange={(e) => setMaxPrice(Number(e.target.value))}
               className="w-full accent-foreground cursor-pointer"
             />
             <div className="flex justify-between text-xs text-muted-foreground mt-2">
               <span>₹100</span>
-              <span className="font-semibold text-foreground">Up to ₹{maxPrice}</span>
-              <span>₹1,000</span>
+              <span className="font-semibold text-foreground">Up to ₹{currentMaxPrice}</span>
+              <span>₹{maxLimit.toLocaleString("en-IN")}</span>
             </div>
           </FilterGroup>
 
           {/* Reset Filters */}
-          {(occasion !== "All" || selectedColor || selectedSize || maxPrice < 1000 || search || category) && (
+          {(occasion !== "All" || selectedColor || selectedSize || maxPrice !== null || search || category) && (
             <button
               onClick={() => {
                 setOccasion("All");
                 setSelectedColor(null);
                 setSelectedSize(null);
-                setMaxPrice(1000);
+                setMaxPrice(null);
               }}
               className="w-full py-2.5 rounded-full border border-dashed border-gold text-gold hover:bg-gold hover:text-white transition text-xs font-medium"
             >
