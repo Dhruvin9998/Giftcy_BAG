@@ -50,7 +50,8 @@ export function Header() {
   const menuLinks = settings?.header_menu || nav;
 
   return (
-    <header className="sticky top-0 z-40 glass border-b border-border/60">
+    <>
+      <header className="sticky top-0 z-40 glass border-b border-border/60">
       <div className="mx-auto max-w-7xl px-5 lg:px-10">
         <div className="flex h-16 lg:h-20 items-center justify-between gap-6">
           <button className="lg:hidden -ml-2 p-2" onClick={() => setOpen(true)} aria-label="Open menu">
@@ -159,6 +160,7 @@ export function Header() {
           </div>
         </div>
       </div>
+      </header>
 
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -368,6 +370,6 @@ export function Header() {
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 }
