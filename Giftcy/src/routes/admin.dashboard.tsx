@@ -2974,8 +2974,8 @@ function OrdersAdmin() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiClient.get("/admin/orders");
       if (res?.success && Array.isArray(res.data)) {
@@ -2984,11 +2984,17 @@ function OrdersAdmin() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => {
+      load(true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const setStatus = async (id: string, status: string) => {
     try {
@@ -4174,8 +4180,8 @@ function BulkInquiriesAdmin({ onRefresh }: { onRefresh?: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiClient.get("/bulk-inquiries");
       if (res?.success && Array.isArray(res.data)) {
@@ -4184,11 +4190,17 @@ function BulkInquiriesAdmin({ onRefresh }: { onRefresh?: () => void }) {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => {
+      load(true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const setStatus = async (id: string, status: string) => {
     try {
@@ -4378,8 +4390,8 @@ function CustomerSupportCMS({ onRefresh }: { onRefresh?: () => void }) {
     }
   };
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiClient.get("/admin/support-messages");
       if (res?.success && Array.isArray(res.data)) {
@@ -4396,14 +4408,18 @@ function CustomerSupportCMS({ onRefresh }: { onRefresh?: () => void }) {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load customer support messages");
+      if (!silent) toast.error("Failed to load customer support messages");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     load();
+    const interval = setInterval(() => {
+      load(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleStatusUpdate = async (id: string, status: string) => {
@@ -4665,8 +4681,8 @@ function ReviewsAdmin() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchReviews = async () => {
-    setLoading(true);
+  const fetchReviews = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiClient.get("/admin/reviews");
       if (res?.success && Array.isArray(res.data)) {
@@ -4679,14 +4695,18 @@ function ReviewsAdmin() {
         }
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to fetch reviews");
+      if (!silent) toast.error(err.message || "Failed to fetch reviews");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchReviews();
+    const interval = setInterval(() => {
+      fetchReviews(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {

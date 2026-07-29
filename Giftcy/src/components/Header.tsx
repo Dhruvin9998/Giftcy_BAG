@@ -29,7 +29,7 @@ export function Header() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    (async () => {
+    const fetchSettings = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data) {
@@ -38,7 +38,10 @@ export function Header() {
       } catch (err) {
         console.error("Failed to load settings in header", err);
       }
-    })();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const brandName = settings?.general_settings?.brandName || "Giftcy";

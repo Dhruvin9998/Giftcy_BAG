@@ -108,7 +108,24 @@ function PDP() {
       }
     };
     fetchPincodeSettings();
+    const interval = setInterval(fetchPincodeSettings, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const fetchReviews = async (silent = false) => {
+    if (!product.id) return;
+    if (!silent) setLoadingReviews(true);
+    try {
+      const res = await apiClient.get(`/reviews/${product.id}`);
+      if (res?.success && Array.isArray(res.data)) {
+        setReviews(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load reviews", err);
+    } finally {
+      if (!silent) setLoadingReviews(false);
+    }
+  };
 
   useEffect(() => {
     setActiveIndex(0);
@@ -119,22 +136,11 @@ function PDP() {
     setPincodeStatus("idle");
     setPincodeDetails(null);
     fetchReviews();
+    const interval = setInterval(() => {
+      fetchReviews(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, [product]);
-
-  const fetchReviews = async () => {
-    if (!product.id) return;
-    setLoadingReviews(true);
-    try {
-      const res = await apiClient.get(`/reviews/${product.id}`);
-      if (res?.success && Array.isArray(res.data)) {
-        setReviews(res.data);
-      }
-    } catch (err) {
-      console.error("Failed to load reviews", err);
-    } finally {
-      setLoadingReviews(false);
-    }
-  };
 
   const handleCheckPincode = async (e: React.FormEvent) => {
     e.preventDefault();

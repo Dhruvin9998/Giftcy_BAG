@@ -7,7 +7,7 @@ export function Footer() {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    (async () => {
+    const fetchSettings = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data) {
@@ -16,7 +16,10 @@ export function Footer() {
       } catch (err) {
         console.error("Failed to load settings in footer", err);
       }
-    })();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const instaLink = settings?.general_settings?.insta || "https://instagram.com/giftcy";

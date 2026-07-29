@@ -22,8 +22,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   // Load wishlist on mount or auth change
   useEffect(() => {
-    const loadWishlist = async () => {
-      setLoading(true);
+    const loadWishlist = async (silent = false) => {
+      if (!silent) setLoading(true);
       if (user) {
         try {
           const response = await apiClient.get("/wishlist");
@@ -33,30 +33,32 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             setItems(mapped);
 
             // Merge guest wishlist items from localStorage if any exist
-            const localWishlistRaw = localStorage.getItem("giftcy_wishlist");
-            if (localWishlistRaw) {
-              const localItems = JSON.parse(localWishlistRaw) as Product[];
-              if (localItems.length > 0) {
-                // Find products that are in local wishlist but NOT in db wishlist
-                const dbProductIds = new Set(dbProducts.map((p) => p._id));
-                const itemsToMerge = localItems.filter((li) => li.id && !dbProductIds.has(li.id));
+            if (!silent) {
+              const localWishlistRaw = localStorage.getItem("giftcy_wishlist");
+              if (localWishlistRaw) {
+                const localItems = JSON.parse(localWishlistRaw) as Product[];
+                if (localItems.length > 0) {
+                  // Find products that are in local wishlist but NOT in db wishlist
+                  const dbProductIds = new Set(dbProducts.map((p) => p._id));
+                  const itemsToMerge = localItems.filter((li) => li.id && !dbProductIds.has(li.id));
 
-                if (itemsToMerge.length > 0) {
-                  toast.info(`Syncing ${itemsToMerge.length} items from your guest wishlist...`);
-                  for (const item of itemsToMerge) {
-                    try {
-                      await apiClient.post(`/wishlist/${item.id!}`, {});
-                    } catch (err) {
-                      console.error("Failed to sync item to database wishlist", err);
+                  if (itemsToMerge.length > 0) {
+                    toast.info(`Syncing ${itemsToMerge.length} items from your guest wishlist...`);
+                    for (const item of itemsToMerge) {
+                      try {
+                        await apiClient.post(`/wishlist/${item.id!}`, {});
+                      } catch (err) {
+                        console.error("Failed to sync item to database wishlist", err);
+                      }
+                    }
+                    // Re-fetch wishlist after merging
+                    const updatedResponse = await apiClient.get("/wishlist");
+                    if (updatedResponse?.success && updatedResponse?.data) {
+                      setItems((updatedResponse.data.products || []).map(dbToProduct));
                     }
                   }
-                  // Re-fetch wishlist after merging
-                  const updatedResponse = await apiClient.get("/wishlist");
-                  if (updatedResponse?.success && updatedResponse?.data) {
-                    setItems((updatedResponse.data.products || []).map(dbToProduct));
-                  }
+                  localStorage.removeItem("giftcy_wishlist");
                 }
-                localStorage.removeItem("giftcy_wishlist");
               }
             }
           }
@@ -76,10 +78,14 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           setItems([]);
         }
       }
-      setLoading(false);
+      if (!silent) setLoading(false);
     };
 
     loadWishlist();
+    const interval = setInterval(() => {
+      loadWishlist(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const toggle = async (product: Product) => {

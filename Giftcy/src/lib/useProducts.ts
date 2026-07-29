@@ -112,8 +112,8 @@ export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true 
     }
   }, []);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await apiClient.get("/products?limit=100");
       if (response?.success && response?.data?.products) {
@@ -130,11 +130,17 @@ export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true 
     } catch (err) {
       console.error("Error loading products", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [opts.onlyActive]);
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => {
+      load(true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [opts.onlyActive]);
 
   return { products: list, dbProducts: dbList, loading, reload: load };
 }

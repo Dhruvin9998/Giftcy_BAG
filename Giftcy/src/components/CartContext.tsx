@@ -81,8 +81,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   // Load cart from API or LocalStorage on login/logout
-  const loadCart = useCallback(async () => {
-    setLoading(true);
+  const loadCart = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     let dbMapped: CartItem[] = [];
 
     if (user) {
@@ -159,11 +159,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } else {
       setItems(localItems);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [user]);
 
   useEffect(() => {
     loadCart();
+    const interval = setInterval(() => {
+      loadCart(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, [loadCart]);
 
   const add = async (product: Product, opts?: { size?: string; color?: string; qty?: number }) => {

@@ -49,8 +49,8 @@ function Shop() {
       }
     }
 
-    // 2. Fetch fresh categories
-    (async () => {
+    // 2. Fetch fresh categories periodically
+    const fetchCategories = async () => {
       try {
         const res = await apiClient.get("/categories");
         if (res?.success && Array.isArray(res.data)) {
@@ -62,7 +62,11 @@ function Shop() {
       } catch (err) {
         console.error("Failed to load categories in shop", err);
       }
-    })();
+    };
+
+    fetchCategories();
+    const interval = setInterval(fetchCategories, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const currentCategory = category

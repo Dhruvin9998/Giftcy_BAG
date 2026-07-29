@@ -77,11 +77,16 @@ function AccountPage() {
       setEmail(user.email);
       loadOrders();
       loadSupportMessages();
+      const interval = setInterval(() => {
+        loadOrders(true);
+        loadSupportMessages(true);
+      }, 15000);
+      return () => clearInterval(interval);
     }
   }, [user]);
 
-  const loadSupportMessages = async () => {
-    setLoadingSupport(true);
+  const loadSupportMessages = async (silent = false) => {
+    if (!silent) setLoadingSupport(true);
     try {
       const response = await apiClient.get("/contact/my-messages");
       if (response?.success && response?.data) {
@@ -90,12 +95,12 @@ function AccountPage() {
     } catch (error) {
       console.error("Failed to load support messages", error);
     } finally {
-      setLoadingSupport(false);
+      if (!silent) setLoadingSupport(false);
     }
   };
 
-  const loadOrders = async () => {
-    setLoadingOrders(true);
+  const loadOrders = async (silent = false) => {
+    if (!silent) setLoadingOrders(true);
     try {
       const response = await apiClient.get("/orders/my-orders");
       if (response?.success && response?.data) {
@@ -104,7 +109,7 @@ function AccountPage() {
     } catch (error) {
       console.error("Failed to load orders", error);
     } finally {
-      setLoadingOrders(false);
+      if (!silent) setLoadingOrders(false);
     }
   };
 

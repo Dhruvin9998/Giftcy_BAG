@@ -60,8 +60,8 @@ function CollectionPage() {
   const [dbLoading, setDbLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      setDbLoading(true);
+    const fetchCollection = async (silent = false) => {
+      if (!silent) setDbLoading(true);
       try {
         const res = await apiClient.get(`/collections/${slug}`);
         if (res?.success && res?.data) {
@@ -73,9 +73,15 @@ function CollectionPage() {
         console.error("Failed to load DB collection, using legacy fallback", err);
         setCollectionData(null);
       } finally {
-        setDbLoading(false);
+        if (!silent) setDbLoading(false);
       }
-    })();
+    };
+
+    fetchCollection();
+    const interval = setInterval(() => {
+      fetchCollection(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, [slug]);
 
   const dbMeta = collectionData ? {

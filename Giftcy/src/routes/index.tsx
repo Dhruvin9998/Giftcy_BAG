@@ -180,8 +180,8 @@ function Home() {
   }, [settings, dbCollections, banners]);
 
   useEffect(() => {
-    // 2. Fetch fresh background sync on mount
-    (async () => {
+    // 2. Fetch fresh background sync periodically
+    const syncData = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data) {
@@ -196,9 +196,13 @@ function Home() {
           setBanners(bannersRes.data);
         }
       } catch (err) {
-        console.error("Failed to sync homepage data on mount", err);
+        console.error("Failed to sync homepage data", err);
       }
-    })();
+    };
+
+    syncData();
+    const interval = setInterval(syncData, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {

@@ -6,7 +6,7 @@ export function WhatsAppButton() {
   const [waNumber, setWaNumber] = useState("919999999999");
 
   useEffect(() => {
-    (async () => {
+    const fetchSettings = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data?.contact_info?.whatsapp) {
@@ -18,7 +18,10 @@ export function WhatsAppButton() {
       } catch (err) {
         console.error("Failed to load settings in WhatsAppButton", err);
       }
-    })();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
