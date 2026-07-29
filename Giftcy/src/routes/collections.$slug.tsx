@@ -247,7 +247,7 @@ function CollectionPage() {
               type="range"
               min={100}
               max={maxLimit}
-              step={maxLimit > 500 ? 50 : 10}
+              step={1}
               value={currentMaxPrice}
               onChange={(e) => setMaxPrice(Number(e.target.value))}
               className="w-full accent-foreground cursor-pointer"
