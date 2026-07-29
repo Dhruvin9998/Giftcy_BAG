@@ -668,6 +668,7 @@ function Analytics() {
   const [stats, setStats] = useState<any>(null);
   const [salesTrend, setSalesTrend] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Interaction controls
@@ -691,6 +692,9 @@ function Analytics() {
           }
           if (Array.isArray(res.data?.recentOrders)) {
             setRecentOrders(res.data.recentOrders);
+          }
+          if (Array.isArray(res.data?.topProducts)) {
+            setTopProducts(res.data.topProducts);
           }
         }
       } catch (err) {
@@ -892,10 +896,10 @@ function Analytics() {
           </div>
         </div>
 
-        {/* Category Breakdown & Operations Circle */}
+        {/* Top Selling Products & Operations Circle */}
         <div className="lg:col-span-4 bg-white border border-border p-6 rounded-2xl shadow-sm hover:shadow-soft hover:border-border/80 transition-all duration-300 flex flex-col justify-between h-[360px]">
           <div>
-            <h3 className="serif text-xl font-semibold text-foreground mb-4">Operations & Share</h3>
+            <h3 className="serif text-xl font-semibold text-foreground mb-4">Top Selling Products</h3>
             
             {/* Store Health Score Gauge */}
             <div className="flex items-center gap-4 bg-cream/35 border border-border/40 p-4 rounded-xl mb-4">
@@ -926,27 +930,37 @@ function Analytics() {
             </div>
           </div>
 
-          {/* Category listings progress bars */}
-          <div className="flex-1 overflow-y-auto pr-1 scrollbar-none space-y-3">
-            {sales.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground text-xs font-light">No categories data recorded.</div>
+          {/* Top 5 Best Sellers listings */}
+          <div className="flex-1 overflow-y-auto pr-1 scrollbar-none space-y-3.5 mt-1">
+            {topProducts.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-xs font-light">No best sellers data recorded.</div>
             ) : (
-              sales.slice(0, 3).map((s, idx) => {
+              topProducts.map((s, idx) => {
                 const percentage = Math.min(100, (s.salesAmount / Math.max(1, stats?.totalSales || 5000)) * 100);
-                const colorsArr = ["from-gold to-foreground", "from-indigo-400 to-indigo-600", "from-amber-400 to-amber-600"];
-                const gradient = colorsArr[idx % colorsArr.length];
+                const colorsArr = ["bg-gold", "bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500"];
+                const color = colorsArr[idx % colorsArr.length];
                 return (
-                  <div key={s._id} className="space-y-1 text-xs">
-                    <div className="flex justify-between text-[11px] font-medium text-foreground">
-                      <span>{s.categoryName || "Uncategorized"}</span>
-                      <span className="font-semibold text-gold">₹{s.salesAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-cream rounded-full overflow-hidden">
-                      <div className={`h-full bg-gradient-to-r ${gradient} rounded-full`} style={{ width: `${percentage}%` }} />
-                    </div>
-                    <div className="flex justify-between text-[9px] text-muted-foreground">
-                      <span>{s.unitsSold} units sold</span>
-                      <span>{Math.round(percentage)}% share</span>
+                  <div key={s._id || idx} className="flex items-center gap-3">
+                    <img 
+                      src={s.image || "/placeholder.jpg"} 
+                      alt={s.name} 
+                      className="h-8 w-8 rounded-lg object-cover border border-border/50 shrink-0 bg-cream/30"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=100&auto=format&fit=crop";
+                      }}
+                    />
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex justify-between items-baseline gap-1">
+                        <span className="text-[11px] font-medium text-foreground truncate block flex-1">{s.name}</span>
+                        <span className="text-[10px] font-bold text-gold font-mono shrink-0">₹{Math.round(s.salesAmount).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                        <span>{s.unitsSold} units sold</span>
+                        <span>{Math.round(percentage)}% share</span>
+                      </div>
+                      <div className="h-1 w-full bg-cream rounded-full overflow-hidden mt-1">
+                        <div className={`h-full ${color} rounded-full`} style={{ width: `${percentage}%` }} />
+                      </div>
                     </div>
                   </div>
                 );

@@ -137,6 +137,30 @@ export const getDashboardStats = async (req, res, next) => {
       .sort('-createdAt')
       .limit(5);
 
+    // 7. Top 5 Best Selling Products (from Paid or COD orders not cancelled)
+    const topProducts = await Order.aggregate([
+      {
+        $match: {
+          $or: [
+            { isPaid: true },
+            { paymentMethod: 'COD', status: { $ne: 'Cancelled' } },
+          ],
+        },
+      },
+      { $unwind: '$orderItems' },
+      {
+        $group: {
+          _id: '$orderItems.product',
+          name: { $first: '$orderItems.name' },
+          image: { $first: '$orderItems.image' },
+          salesAmount: { $sum: { $multiply: ['$orderItems.quantity', '$orderItems.price'] } },
+          unitsSold: { $sum: '$orderItems.quantity' },
+        },
+      },
+      { $sort: { unitsSold: -1 } },
+      { $limit: 5 },
+    ]);
+
     const totalSales = salesData.length > 0 ? salesData[0].totalSales : 0;
 
     new ApiResponse(
@@ -155,6 +179,7 @@ export const getDashboardStats = async (req, res, next) => {
         categorySales,
         salesTrend,
         recentOrders,
+        topProducts,
       },
       'Dashboard stats compiled successfully.'
     ).send(res);
