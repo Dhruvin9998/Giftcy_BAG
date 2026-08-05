@@ -50,6 +50,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    city: {
+      type: String,
+      default: null,
+    },
+    state: {
+      type: String,
+      default: null,
+    },
+    pincode: {
+      type: String,
+      default: null,
+    },
     otp: {
       type: String,
       default: null,

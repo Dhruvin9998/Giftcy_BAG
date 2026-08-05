@@ -68,7 +68,7 @@ function CustomizePage() {
   const [waNumber, setWaNumber] = useState("919999999999");
 
   useEffect(() => {
-    (async () => {
+    const fetchSettings = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data?.contact_info?.whatsapp) {
@@ -78,7 +78,10 @@ function CustomizePage() {
       } catch (err) {
         console.error("Failed to load settings", err);
       }
-    })();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const price = useMemo(() => {

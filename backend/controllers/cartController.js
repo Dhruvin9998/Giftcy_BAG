@@ -35,7 +35,7 @@ export const getCart = async (req, res, next) => {
  */
 export const addToCart = async (req, res, next) => {
   try {
-    const { productId, quantity = 1 } = req.body;
+    const { productId, quantity = 1, size = 'M', color = 'Ivory' } = req.body;
 
     if (!productId) {
       return next(new ApiError(400, 'Product ID is required'));
@@ -48,8 +48,14 @@ export const addToCart = async (req, res, next) => {
     }
 
     // Check stock
-    if (product.stock < quantity) {
-      return next(new ApiError(400, `Insufficient stock. Only ${product.stock} items left.`));
+    const requestedSize = size || 'M';
+    let availableStock = product.stock;
+    if (product.sizeStock && product.sizeStock.get(requestedSize) !== undefined) {
+      availableStock = product.sizeStock.get(requestedSize);
+    }
+
+    if (availableStock < quantity) {
+      return next(new ApiError(400, `Insufficient stock. Only ${availableStock} items left for size ${requestedSize}.`));
     }
 
     let cart = await Cart.findOne({ user: req.user.id });
@@ -57,18 +63,23 @@ export const addToCart = async (req, res, next) => {
       cart = await Cart.create({ user: req.user.id, items: [] });
     }
 
-    // Check if product already in cart
-    const itemIndex = cart.items.findIndex((item) => item.product.toString() === productId);
+    // Check if product already in cart with same size and color
+    const itemIndex = cart.items.findIndex(
+      (item) =>
+        item.product.toString() === productId &&
+        (item.size || 'M') === size &&
+        (item.color || 'Ivory') === color
+    );
 
     if (itemIndex > -1) {
       // Validate cumulative quantity against stock
       const newQuantity = cart.items[itemIndex].quantity + Number(quantity);
-      if (product.stock < newQuantity) {
-        return next(new ApiError(400, `Cannot add quantity. Total items in cart (${newQuantity}) exceeds stock (${product.stock}).`));
+      if (availableStock < newQuantity) {
+        return next(new ApiError(400, `Cannot add quantity. Total items in cart (${newQuantity}) exceeds available stock (${availableStock}) for size ${requestedSize}.`));
       }
       cart.items[itemIndex].quantity = newQuantity;
     } else {
-      cart.items.push({ product: productId, quantity: Number(quantity) });
+      cart.items.push({ product: productId, quantity: Number(quantity), size, color });
     }
 
     await cart.save();
@@ -89,7 +100,7 @@ export const addToCart = async (req, res, next) => {
 export const updateCartItemQuantity = async (req, res, next) => {
   try {
     const productId = req.params.productId || req.body.productId;
-    const { quantity } = req.body;
+    const { quantity, size = 'M', color = 'Ivory' } = req.body;
 
     if (quantity === undefined || quantity < 1) {
       return next(new ApiError(400, 'Quantity must be at least 1'));
@@ -102,8 +113,14 @@ export const updateCartItemQuantity = async (req, res, next) => {
     }
 
     // Verify stock
-    if (product.stock < quantity) {
-      return next(new ApiError(400, `Only ${product.stock} items available in stock.`));
+    const requestedSize = size || 'M';
+    let availableStock = product.stock;
+    if (product.sizeStock && product.sizeStock.get(requestedSize) !== undefined) {
+      availableStock = product.sizeStock.get(requestedSize);
+    }
+
+    if (availableStock < quantity) {
+      return next(new ApiError(400, `Only ${availableStock} items available in stock for size ${requestedSize}.`));
     }
 
     const cart = await Cart.findOne({ user: req.user.id });
@@ -111,7 +128,12 @@ export const updateCartItemQuantity = async (req, res, next) => {
       return next(new ApiError(404, 'Cart not found'));
     }
 
-    const itemIndex = cart.items.findIndex((item) => item.product.toString() === productId);
+    const itemIndex = cart.items.findIndex(
+      (item) =>
+        item.product.toString() === productId &&
+        (item.size || 'M') === size &&
+        (item.color || 'Ivory') === color
+    );
     if (itemIndex === -1) {
       return next(new ApiError(404, 'Product not found in cart'));
     }
@@ -134,13 +156,26 @@ export const updateCartItemQuantity = async (req, res, next) => {
 export const removeFromCart = async (req, res, next) => {
   try {
     const productId = req.params.productId || req.body.productId || req.query.productId;
+    const size = req.query.size || req.body.size;
+    const color = req.query.color || req.body.color;
 
     const cart = await Cart.findOne({ user: req.user.id });
     if (!cart) {
       return next(new ApiError(404, 'Cart not found'));
     }
 
-    cart.items = cart.items.filter((item) => item.product.toString() !== productId);
+    if (size || color) {
+      cart.items = cart.items.filter(
+        (item) =>
+          !(
+            item.product.toString() === productId &&
+            (!size || (item.size || 'M') === size) &&
+            (!color || (item.color || 'Ivory') === color)
+          )
+      );
+    } else {
+      cart.items = cart.items.filter((item) => item.product.toString() !== productId);
+    }
     await cart.save();
 
     const populatedCart = await Cart.findById(cart._id).populate('items.product', 'name price compareAtPrice images stock slug');

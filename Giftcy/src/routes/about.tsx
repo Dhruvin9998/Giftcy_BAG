@@ -18,7 +18,7 @@ function About() {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    (async () => {
+    const fetchSettings = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data) {
@@ -27,7 +27,10 @@ function About() {
       } catch (err) {
         console.error("Failed to load settings", err);
       }
-    })();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const title = settings?.about_page?.title || "Our Story";

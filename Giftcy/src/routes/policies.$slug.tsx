@@ -120,7 +120,7 @@ function PolicyPage() {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    (async () => {
+    const fetchSettings = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data) {
@@ -129,7 +129,10 @@ function PolicyPage() {
       } catch (err) {
         console.error("Failed to load settings in PolicyPage", err);
       }
-    })();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   if (!policy) {

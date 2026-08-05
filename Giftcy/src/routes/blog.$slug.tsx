@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { BLOG_POSTS, type BlogPost } from "./blog";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { apiClient } from "@/lib/apiClient";
@@ -41,7 +42,43 @@ export const Route = createFileRoute("/blog/$slug")({
 });
 
 function BlogPostPage() {
-  const { post } = Route.useLoaderData() as { post: BlogPost | null };
+  const { post: initialPost } = Route.useLoaderData() as { post: BlogPost | null };
+  const [post, setPost] = useState<BlogPost | null>(initialPost);
+
+  useEffect(() => {
+    setPost(initialPost);
+  }, [initialPost]);
+
+  useEffect(() => {
+    if (!initialPost) return;
+    let active = true;
+    const fetchLatestPost = async () => {
+      try {
+        const res = await apiClient.get(`/blogs/${initialPost.slug}`);
+        if (res?.success && res?.data && active) {
+          const b = res.data;
+          setPost({
+            slug: b.slug,
+            title: b.title,
+            excerpt: b.excerpt || b.content.substring(0, 150) + "...",
+            content: b.content,
+            image: b.featuredImage,
+            category: b.metaTitle || "Editorial",
+            date: new Date(b.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            readTime: "5 min read",
+            author: b.author || "Editor"
+          });
+        }
+      } catch (err) {
+        console.error("Failed to poll latest blog post", err);
+      }
+    };
+    const interval = setInterval(fetchLatestPost, 1000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [initialPost?.slug]);
 
   if (!post) {
     return (

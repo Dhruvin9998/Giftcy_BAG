@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import type { Product } from "@/lib/products";
 import { apiClient } from "@/lib/apiClient";
 import { useAuth } from "./AuthContext";
@@ -26,11 +26,11 @@ const mapDbItemToCartItem = (item: any): CartItem => {
     product,
     qty: item.quantity,
     size: item.size || "M",
-    color: item.color || "Ivory",
+    color: item.color || "",
     productId: product.id || "",
     productName: product.name,
     productImage: product.image,
-    variant: `${item.color || "Ivory"} / ${item.size || "M"}`,
+    variant: item.size || "M",
     quantity: item.quantity,
     price: product.price,
     totalPrice: product.price * item.quantity,
@@ -42,11 +42,11 @@ const mapGuestItemToCartItem = (it: any): CartItem => {
     product: it.product,
     qty: it.qty,
     size: it.size || "M",
-    color: it.color || "Ivory",
+    color: it.color || "",
     productId: it.product.id || "",
     productName: it.product.name,
     productImage: it.product.image,
-    variant: `${it.color || "Ivory"} / ${it.size || "M"}`,
+    variant: it.size || "M",
     quantity: it.qty,
     price: it.product.price,
     totalPrice: it.product.price * it.qty,
@@ -58,8 +58,8 @@ type CartCtx = {
   open: boolean;
   setOpen: (v: boolean) => void;
   add: (p: Product, opts?: { size?: string; color?: string; qty?: number }) => Promise<void>;
-  remove: (slug: string) => Promise<void>;
-  updateQty: (slug: string, qty: number) => Promise<void>;
+  remove: (slug: string, size?: string, color?: string) => Promise<void>;
+  updateQty: (slug: string, qty: number | ((prevQty: number) => number), size?: string, color?: string) => Promise<void>;
   clear: () => Promise<void>;
   subtotal: number;
   count: number;
@@ -79,6 +79,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const pendingUpdates = useRef<Record<string, { qty: number; timeout: any }>>({});
+  const currentQuantities = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    const q: Record<string, number> = {};
+    items.forEach((it) => {
+      const key = `${it.product.slug}-${it.size || "M"}-${it.color || "Ivory"}`;
+      q[key] = it.qty;
+    });
+    currentQuantities.current = q;
+  }, [items]);
 
   // Load cart from API or LocalStorage on login/logout
   const loadCart = useCallback(async (silent = false) => {
@@ -165,7 +177,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadCart();
     const interval = setInterval(() => {
-      loadCart(true);
+      const hasPending = Object.keys(pendingUpdates.current).length > 0;
+      if (!hasPending) {
+        loadCart(true);
+      }
     }, 15000);
     return () => clearInterval(interval);
   }, [loadCart]);
@@ -173,7 +188,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const add = async (product: Product, opts?: { size?: string; color?: string; qty?: number }) => {
     const qty = opts?.qty ?? 1;
     const size = opts?.size ?? "M";
-    const color = opts?.color ?? "Ivory";
+    const color = opts?.color ?? "";
 
     const isCustom = !product.id || product.slug.startsWith("custom-");
 
@@ -268,14 +283,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const remove = async (slug: string) => {
-    const item = items.find((i) => i.product.slug === slug);
+  const remove = async (slug: string, size?: string, color?: string) => {
+    const item = items.find((i) => 
+      i.product.slug === slug &&
+      (!size || i.size === size) &&
+      (!color || i.color === color)
+    );
     if (!item) return;
 
     const isCustom = !item.product.id || slug.startsWith("custom-");
     const rollbackItems = [...items];
 
-    setItems((prev) => prev.filter((i) => i.product.slug !== slug));
+    setItems((prev) => 
+      prev.filter((i) => 
+        !(i.product.slug === slug && (!size || i.size === size) && (!color || i.color === color))
+      )
+    );
     toast.success(`${item.product.name} removed from cart`);
 
     if (isCustom) {
@@ -284,7 +307,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (customCartRaw) {
         try {
           const list = JSON.parse(customCartRaw) as CartItem[];
-          const next = list.filter((i) => i.product.slug !== slug);
+          const next = list.filter((i) => 
+            !(i.product.slug === slug && (!size || i.size === size) && (!color || i.color === color))
+          );
           localStorage.setItem(key, JSON.stringify(next));
         } catch (e) {
           console.error(e);
@@ -293,7 +318,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } else {
       if (user) {
         try {
-          const response = await apiClient.delete(`/cart/${item.product.id}`);
+          const sizeParam = size ? `&size=${encodeURIComponent(size)}` : "";
+          const colorParam = color ? `&color=${encodeURIComponent(color)}` : "";
+          const response = await apiClient.delete(`/cart/${item.product.id}?_t=${Date.now()}${sizeParam}${colorParam}`);
           if (response?.success && response?.data) {
             const dbItems = response.data.items || [];
             const mapped = dbItems
@@ -321,9 +348,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateQty = async (slug: string, qty: number) => {
-    const safeQty = Math.max(1, qty);
-    const item = items.find((i) => i.product.slug === slug);
+  const updateQty = async (
+    slug: string, 
+    qtyOrUpdater: number | ((prevQty: number) => number),
+    size?: string,
+    color?: string
+  ) => {
+    const itemKey = `${slug}-${size || "M"}-${color || "Ivory"}`;
+    const currentQty = currentQuantities.current[itemKey] ?? items.find((i) => 
+      i.product.slug === slug &&
+      (!size || i.size === size) &&
+      (!color || i.color === color)
+    )?.qty ?? 1;
+
+    const safeQty = Math.max(1, typeof qtyOrUpdater === "function" ? qtyOrUpdater(currentQty) : qtyOrUpdater);
+    
+    currentQuantities.current[itemKey] = safeQty;
+
+    const item = items.find((i) => 
+      i.product.slug === slug &&
+      (!size || i.size === size) &&
+      (!color || i.color === color)
+    );
     if (!item) return;
 
     const isCustom = !item.product.id || slug.startsWith("custom-");
@@ -331,7 +377,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setItems((prev) =>
       prev.map((i) =>
-        i.product.slug === slug
+        i.product.slug === slug && (!size || i.size === size) && (!color || i.color === color)
           ? {
               ...i,
               qty: safeQty,
@@ -349,7 +395,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         try {
           const list = JSON.parse(customCartRaw) as CartItem[];
           const next = list.map((i) =>
-            i.product.slug === slug ? { ...i, qty: safeQty, quantity: safeQty, totalPrice: i.price * safeQty } : i
+            i.product.slug === slug && (!size || i.size === size) && (!color || i.color === color)
+              ? { ...i, qty: safeQty, quantity: safeQty, totalPrice: i.price * safeQty } 
+              : i
           );
           localStorage.setItem(key, JSON.stringify(next));
         } catch (e) {
@@ -358,33 +406,60 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     } else {
       if (user) {
-        try {
-          const response = await apiClient.put(`/cart/${item.product.id}`, {
-            quantity: safeQty,
-          });
-          if (response?.success && response?.data) {
-            const dbItems = response.data.items || [];
-            const mapped = dbItems
-              .filter((item: any) => item.product !== null)
-              .map(mapDbItemToCartItem);
-            
-            const customCartRaw = localStorage.getItem("giftcy_custom_cart");
-            let customItems: CartItem[] = [];
-            if (customCartRaw) {
-              try { customItems = JSON.parse(customCartRaw); } catch (e) {}
-            }
-            setItems([...mapped, ...customItems]);
-          }
-        } catch (error: any) {
-          console.error("Failed to update cart quantity on server", error);
-          setItems(rollbackItems);
-          toast.error(error.message || "Failed to update quantity on server");
+        // Sync database with debounce
+        if (pendingUpdates.current[itemKey]?.timeout) {
+          clearTimeout(pendingUpdates.current[itemKey].timeout);
         }
+
+        pendingUpdates.current[itemKey] = {
+          qty: safeQty,
+          timeout: setTimeout(async () => {
+            try {
+              const finalQty = currentQuantities.current[itemKey] ?? safeQty;
+              const response = await apiClient.put(`/cart/${item.product.id}`, {
+                quantity: finalQty,
+                size: size || "M",
+                color: color || "Ivory",
+              });
+              if (response?.success && response?.data) {
+                const dbItems = response.data.items || [];
+                const mapped = dbItems
+                  .filter((item: any) => item.product !== null)
+                  .map(mapDbItemToCartItem);
+                
+                const customCartRaw = localStorage.getItem("giftcy_custom_cart");
+                let customItems: CartItem[] = [];
+                if (customCartRaw) {
+                  try { customItems = JSON.parse(customCartRaw); } catch (e) {}
+                }
+
+                setItems((currentItems) => {
+                  const hasPending = pendingUpdates.current[itemKey]?.timeout !== undefined;
+                  if (hasPending) {
+                    return currentItems;
+                  }
+                  return [...mapped, ...customItems];
+                });
+              }
+            } catch (error: any) {
+              console.error("Failed to update cart quantity on server", error);
+              setItems(rollbackItems);
+              toast.error(error.message || "Failed to update quantity on server");
+            } finally {
+              delete pendingUpdates.current[itemKey];
+            }
+          }, 500),
+        };
       } else {
         // Guest local update
         setItems((prev) => {
-          localStorage.setItem("giftcy_cart", JSON.stringify(prev));
-          return prev;
+          const next = prev.map((i) =>
+            i.product.slug === slug && (!size || i.size === size) && (!color || i.color === color)
+              ? { ...i, qty: safeQty, quantity: safeQty, totalPrice: i.price * safeQty } 
+              : i
+          );
+          localStorage.setItem("giftcy_cart", JSON.stringify(next));
+          return next;
         });
       }
     }

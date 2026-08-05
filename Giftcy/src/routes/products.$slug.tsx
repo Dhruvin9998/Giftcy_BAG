@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Heart, Minus, Plus, Share2, ShoppingBag, Truck } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Heart, Link2, Mail, Minus, Plus, Share2, ShoppingBag, Truck } from "lucide-react";
 import { getProduct as getStaticProduct, products, type Product } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/components/CartContext";
@@ -43,13 +43,54 @@ export const Route = createFileRoute("/products/$slug")({
 });
 
 function PDP() {
-  const { product } = Route.useLoaderData() as { product: Product };
+  const { product: initialProduct } = Route.useLoaderData() as { product: Product };
+  const [product, setProduct] = useState<Product>(initialProduct);
+
+  useEffect(() => {
+    setProduct(initialProduct);
+  }, [initialProduct]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchLatestProduct = async () => {
+      try {
+        const res = await apiClient.get(`/products/${initialProduct.slug}`);
+        if (res?.success && res?.data && active) {
+          setProduct(dbToProduct(res.data as DBProduct));
+        }
+      } catch (err) {
+        console.error("Failed to poll latest product", err);
+      }
+    };
+    const interval = setInterval(fetchLatestProduct, 1000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [initialProduct.slug]);
+
   const { add, setOpen } = useCart();
   const { toggle, has } = useWishlist();
   const { user } = useAuth();
   const isWishlisted = has(product.id);
-  const [size, setSize] = useState(product.sizes[1] ?? product.sizes[0]);
-  const [color, setColor] = useState(product.colors[0]);
+  const availableSizes = useMemo(() => {
+    return product.sizes.filter((s) => {
+      const specificStock = product.sizeStock?.[s] !== undefined ? product.sizeStock[s] : (product.stock !== undefined ? product.stock : 0);
+      return specificStock > 0;
+    });
+  }, [product.sizes, product.sizeStock, product.stock]);
+
+  const [size, setSize] = useState(() => {
+    return availableSizes[0] ?? product.sizes[0] ?? "M";
+  });
+
+  useEffect(() => {
+    if (availableSizes.length > 0 && !availableSizes.includes(size)) {
+      setSize(availableSizes[0]);
+    }
+  }, [availableSizes, size]);
+
+  const [color, setColor] = useState("");
   const [qty, setQty] = useState(1);
   const off = Math.round(((product.mrp - product.price) / product.mrp) * 100);
 
@@ -108,7 +149,7 @@ function PDP() {
       }
     };
     fetchPincodeSettings();
-    const interval = setInterval(fetchPincodeSettings, 30000);
+    const interval = setInterval(fetchPincodeSettings, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -138,7 +179,7 @@ function PDP() {
     fetchReviews();
     const interval = setInterval(() => {
       fetchReviews(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [product]);
 
@@ -191,13 +232,55 @@ function PDP() {
       .slice(0, 4);
   }, [dbProductsList, product.category, product.slug]);
 
-  const handleShare = () => {
+  const shareRef = useRef<HTMLDivElement>(null);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
+        setShowShareMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const handleCopyLink = () => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(window.location.href);
       toast.success("Product link copied to clipboard!");
     } else {
       toast.error("Clipboard copy not supported on this browser.");
     }
+    setShowShareMenu(false);
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = `Check out this amazing product on Giftcy: ${product.name}\n${window.location.href}`;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+    setShowShareMenu(false);
+  };
+
+  const handleShareEmail = () => {
+    const subject = `Check out this product on Giftcy: ${product.name}`;
+    const body = `Hi,\n\nI thought you might like this product: ${product.name}\nLink: ${window.location.href}`;
+    const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = url;
+    setShowShareMenu(false);
+  };
+
+  const handleNativeShare = async () => {
+    try {
+      await navigator.share({
+        title: product.name,
+        text: `Check out ${product.name} on Giftcy`,
+        url: window.location.href,
+      });
+    } catch (err) {
+      console.error("Native share failed", err);
+    }
+    setShowShareMenu(false);
   };
 
   const avgRating = reviews.length > 0 
@@ -354,36 +437,53 @@ function PDP() {
             </a>
           </div>
 
-          {/* Color */}
-          <div className="mt-7">
-            <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-3">Color — <span className="text-foreground">{color}</span></p>
-            <div className="flex gap-2">
-              {product.colors.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`px-4 py-2 rounded-full border text-sm transition ${color === c ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           {/* Size */}
           <div className="mt-6">
             <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-3">Size</p>
             <div className="flex gap-2">
-              {product.sizes.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSize(s)}
-                  className={`h-11 w-11 rounded-full border text-sm transition ${size === s ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}
-                >
-                  {s}
-                </button>
-              ))}
+              {availableSizes.map((s) => {
+                return (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      setSize(s);
+                      setQty(1);
+                    }}
+                    className={`h-11 px-3 rounded-full border text-sm transition ${
+                      size === s
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border hover:border-foreground"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
             </div>
+            {(() => {
+              const specificStock = product.sizeStock?.[size] !== undefined ? product.sizeStock[size] : (product.stock !== undefined ? product.stock : 99);
+              if (specificStock <= 0) {
+                return (
+                  <p className="text-xs text-muted-foreground/70 mt-2.5 font-medium flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" /> Out of Stock
+                  </p>
+                );
+              } else if (specificStock <= 10) {
+                return (
+                  <p className="text-xs text-[#caa24b] mt-2.5 font-medium flex items-center gap-1.5 animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#caa24b]" /> Only {specificStock} left — order soon!
+                  </p>
+                );
+              } else {
+                return (
+                  <p className="text-xs text-muted-foreground mt-2.5 font-medium flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#caa24b]/45" /> In Stock ({specificStock} available)
+                  </p>
+                );
+              }
+            })()}
           </div>
 
           {/* Qty + actions */}
@@ -391,17 +491,33 @@ function PDP() {
             <div className="flex items-center border border-border rounded-full">
               <button className="p-3" onClick={() => setQty((q) => Math.max(1, q - 1))}><Minus className="h-4 w-4" /></button>
               <span className="px-4 text-sm w-10 text-center">{qty}</span>
-              <button className="p-3" onClick={() => setQty((q) => q + 1)}><Plus className="h-4 w-4" /></button>
+              <button
+                className="p-3"
+                onClick={() => {
+                  const specificStock = product.sizeStock?.[size] !== undefined ? product.sizeStock[size] : (product.stock !== undefined ? product.stock : 99);
+                  setQty((q) => Math.min(specificStock, q + 1));
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
             <button
+              disabled={(() => {
+                const specificStock = product.sizeStock?.[size] !== undefined ? product.sizeStock[size] : (product.stock !== undefined ? product.stock : 99);
+                return specificStock <= 0;
+              })()}
               onClick={() => add(product, { size, color, qty })}
-              className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full border border-foreground hover:bg-foreground hover:text-background transition text-sm"
+              className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full border border-foreground hover:bg-foreground hover:text-background transition text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-foreground"
             >
               <ShoppingBag className="h-4 w-4" /> Add to Cart
             </button>
             <button
+              disabled={(() => {
+                const specificStock = product.sizeStock?.[size] !== undefined ? product.sizeStock[size] : (product.stock !== undefined ? product.stock : 99);
+                return specificStock <= 0;
+              })()}
               onClick={() => { add(product, { size, color, qty }); setOpen(true); }}
-              className="flex-1 min-w-[180px] px-6 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 text-sm"
+              className="flex-1 min-w-[180px] px-6 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Buy Now
             </button>
@@ -414,13 +530,56 @@ function PDP() {
             >
               <Heart className={`h-4 w-4 ${isWishlisted ? "fill-gold" : ""}`} />
             </button>
-            <button
-              onClick={handleShare}
-              className="h-12 w-12 rounded-full border border-border flex items-center justify-center hover:border-foreground text-muted-foreground hover:text-foreground transition-all"
-              aria-label="Share"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
+            <div className="relative inline-block" ref={shareRef}>
+              <button
+                onClick={() => setShowShareMenu(!showShareMenu)}
+                className={`h-12 w-12 rounded-full border flex items-center justify-center transition-all ${
+                  showShareMenu
+                    ? "border-gold text-gold bg-gold/5"
+                    : "border-border hover:border-foreground text-muted-foreground hover:text-foreground"
+                }`}
+                aria-label="Share options"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+
+              {showShareMenu && (
+                <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 min-w-[200px] bg-white border border-[#EADFC9] rounded-2xl p-2 shadow-luxury animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={handleCopyLink}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-foreground hover:bg-[#FDFBF7] rounded-xl transition text-left"
+                    >
+                      <Link2 className="h-3.5 w-3.5 text-[#caa24b]" />
+                      Copy Link
+                    </button>
+                    <button
+                      onClick={handleShareWhatsApp}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-foreground hover:bg-[#FDFBF7] rounded-xl transition text-left"
+                    >
+                      <span className="text-[#25D366] text-sm leading-none flex items-center justify-center h-3.5 w-3.5">💬</span>
+                      WhatsApp
+                    </button>
+                    <button
+                      onClick={handleShareEmail}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-foreground hover:bg-[#FDFBF7] rounded-xl transition text-left"
+                    >
+                      <Mail className="h-3.5 w-3.5 text-[#caa24b]" />
+                      Email Link
+                    </button>
+                    {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+                      <button
+                        onClick={handleNativeShare}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-foreground hover:bg-[#FDFBF7] rounded-xl transition text-left border-t border-border mt-1 pt-2"
+                      >
+                        <Share2 className="h-3.5 w-3.5 text-foreground" />
+                        System Share
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Delivery */}

@@ -8,14 +8,17 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// Establish MongoDB Connection
-connectDB();
+// Establish MongoDB Connection, then start the server
+let server;
+(async () => {
+  await connectDB();
 
-// Start Express Server
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+  // Start Express Server only after DB is ready
+  const PORT = process.env.PORT || 5000;
+  server = app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+})();
 
 // Handle Unhandled Rejections (like database connection issues)
 process.on('unhandledRejection', (err) => {

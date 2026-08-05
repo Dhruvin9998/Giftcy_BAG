@@ -20,7 +20,7 @@ export function WhatsAppButton() {
       }
     };
     fetchSettings();
-    const interval = setInterval(fetchSettings, 30000);
+    const interval = setInterval(fetchSettings, 1000);
     return () => clearInterval(interval);
   }, []);
 

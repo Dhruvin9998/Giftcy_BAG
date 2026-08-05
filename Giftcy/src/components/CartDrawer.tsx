@@ -31,7 +31,7 @@ export function CartDrawer() {
           <>
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
               {items.map((it) => (
-                <div key={it.product.slug} className="flex gap-4">
+                <div key={`${it.product.slug}-${it.size || "M"}-${it.color || "Ivory"}`} className="flex gap-4">
                   <img
                     src={it.product.image}
                     alt={it.product.name}
@@ -41,14 +41,14 @@ export function CartDrawer() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
                       <p className="serif text-lg leading-tight">{it.product.name}</p>
-                      <button onClick={() => remove(it.product.slug)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                      <button onClick={() => remove(it.product.slug, it.size, it.color)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
                     </div>
                     <p className="text-xs text-muted-foreground">{it.product.category}</p>
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center border border-border rounded-full">
-                        <button className="p-1.5" onClick={() => updateQty(it.product.slug, it.qty - 1)}><Minus className="h-3 w-3" /></button>
+                        <button className="p-1.5" onClick={() => updateQty(it.product.slug, (q) => q - 1, it.size, it.color)}><Minus className="h-3 w-3" /></button>
                         <span className="px-3 text-sm">{it.qty}</span>
-                        <button className="p-1.5" onClick={() => updateQty(it.product.slug, it.qty + 1)}><Plus className="h-3 w-3" /></button>
+                        <button className="p-1.5" onClick={() => updateQty(it.product.slug, (q) => q + 1, it.size, it.color)}><Plus className="h-3 w-3" /></button>
                       </div>
                       <span className="font-medium">₹{it.product.price * it.qty}</span>
                     </div>

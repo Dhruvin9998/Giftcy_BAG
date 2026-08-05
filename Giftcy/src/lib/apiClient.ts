@@ -66,7 +66,11 @@ async function request(method: string, endpoint: string, body?: any, options: Re
     headers.set("Expires", "0");
   }
 
-  const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  let url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  if (isGet) {
+    const separator = url.includes("?") ? "&" : "?";
+    url = `${url}${separator}_t=${Date.now()}`;
+  }
   
   // Set up request timeout (6s for GET on SSR to prevent SSR timeout, 30s on browser client to allow cold starts / slow networks)
   const isServer = typeof window === "undefined";
@@ -80,6 +84,7 @@ async function request(method: string, endpoint: string, body?: any, options: Re
     method,
     headers,
     signal: controller.signal,
+    ...(isGet ? { cache: "no-store" } : {}),
   };
 
   if (body) {

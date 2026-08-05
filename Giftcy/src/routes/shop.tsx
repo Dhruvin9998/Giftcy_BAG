@@ -72,7 +72,7 @@ function Shop() {
     };
 
     fetchCategories();
-    const interval = setInterval(fetchCategories, 15000);
+    const interval = setInterval(fetchCategories, 1000);
     return () => clearInterval(interval);
   }, []);
 

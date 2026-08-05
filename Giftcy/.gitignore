@@ -27,3 +27,7 @@
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel
+.vercel/
+.vercel-turbo/

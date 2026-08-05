@@ -9,6 +9,9 @@ export type AuthUser = {
   isVerified: boolean;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
 };
 
 type SignInResult = { error?: string; requiresVerification?: boolean; email?: string; emailFailed?: boolean; user?: AuthUser };
@@ -47,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isVerified: u.isVerified,
           phone: u.phone,
           address: u.address,
+          city: u.city,
+          state: u.state,
+          pincode: u.pincode,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
@@ -94,6 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isVerified: u.isVerified,
           phone: u.phone,
           address: u.address,
+          city: u.city,
+          state: u.state,
+          pincode: u.pincode,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
@@ -134,6 +143,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isVerified: u.isVerified,
           phone: u.phone,
           address: u.address,
+          city: u.city,
+          state: u.state,
+          pincode: u.pincode,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
@@ -174,6 +186,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isVerified: u.isVerified,
           phone: u.phone,
           address: u.address,
+          city: u.city,
+          state: u.state,
+          pincode: u.pincode,
         };
         setUser(mappedUser);
         setIsAdmin(u.role === "admin");
@@ -204,6 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isVerified: u.isVerified,
           phone: u.phone,
           address: u.address,
+          city: u.city,
+          state: u.state,
+          pincode: u.pincode,
         });
         setIsAdmin(true);
         return { ok: true, message: "You are now an admin!" };

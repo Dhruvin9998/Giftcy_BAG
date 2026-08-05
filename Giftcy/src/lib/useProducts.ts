@@ -21,6 +21,9 @@ export type DBProduct = {
   flipkart_url?: string | null;
   createdAt: string;
   priority?: number;
+  colors?: string[];
+  sizes?: string[];
+  sizeStock?: Record<string, number>;
 };
 
 const getCleanImageUrl = (url: string | undefined): string => {
@@ -75,6 +78,28 @@ export const dbToProduct = (d: DBProduct): Product => {
     ? (d.images.map(img => getCleanImageUrl(img)).filter(Boolean) as string[])
     : [cleanedImage];
 
+  const rawSizes = d.sizes && d.sizes.length > 0 ? d.sizes : ["S", "M", "L"];
+  const normalizedSizes = Array.from(
+    new Set(
+      rawSizes.map((sz) => {
+        if (sz === "Small") return "S";
+        if (sz === "Medium") return "M";
+        if (sz === "Large") return "L";
+        return sz;
+      })
+    )
+  );
+
+  const rawSizeStock = d.sizeStock || {};
+  const normalizedSizeStock: Record<string, number> = {};
+  Object.keys(rawSizeStock).forEach((k) => {
+    let nk = k;
+    if (k === "Small") nk = "S";
+    else if (k === "Medium") nk = "M";
+    else if (k === "Large") nk = "L";
+    normalizedSizeStock[nk] = Number(rawSizeStock[k]) || 0;
+  });
+
   return {
     id: d._id,
     slug: d.slug || "",
@@ -86,10 +111,12 @@ export const dbToProduct = (d: DBProduct): Product => {
     image: cleanedImage,
     images: cleanedImages,
     badge: d.isBestSeller ? "Bestseller" : d.isNewArrival ? "New" : undefined,
-    colors: ["Ivory", "Gold", "Blush"],
-    sizes: ["S", "M", "L"],
+    colors: d.colors && d.colors.length > 0 ? d.colors : ["Ivory", "Gold", "Blush"],
+    sizes: normalizedSizes,
     description: d.description || "",
     priority: d.priority !== undefined ? d.priority : 99999,
+    sizeStock: normalizedSizeStock,
+    stock: d.stock !== undefined ? d.stock : 0,
   };
 };
 
@@ -138,7 +165,7 @@ export function useProducts(opts: { onlyActive?: boolean } = { onlyActive: true 
     load();
     const interval = setInterval(() => {
       load(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [opts.onlyActive]);
 

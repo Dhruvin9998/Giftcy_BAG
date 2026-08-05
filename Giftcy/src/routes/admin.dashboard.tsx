@@ -149,7 +149,7 @@ function AdminDashboardPage() {
       const interval = setInterval(() => {
         fetchUnreadSupportCount();
         fetchUnreadBulkCount();
-      }, 30000);
+      }, 1000);
       return () => clearInterval(interval);
     }
   }, [user, isAdmin]);
@@ -388,7 +388,8 @@ function Dashboard({ setTab }: { setTab: (t: Tab) => void }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    const fetchDashboardData = async (silent = false) => {
+      if (!silent) setLoading(true);
       try {
         const res = await apiClient.get("/admin/dashboard");
         if (res?.success && res?.data) {
@@ -406,9 +407,15 @@ function Dashboard({ setTab }: { setTab: (t: Tab) => void }) {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    })();
+    };
+
+    fetchDashboardData();
+    const interval = setInterval(() => {
+      fetchDashboardData(true);
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const cards = [
@@ -677,7 +684,8 @@ function Analytics() {
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    const fetchAnalytics = async (silent = false) => {
+      if (!silent) setLoading(true);
       try {
         const res = await apiClient.get("/admin/dashboard");
         if (res?.success) {
@@ -700,9 +708,15 @@ function Analytics() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    })();
+    };
+
+    fetchAnalytics();
+    const interval = setInterval(() => {
+      fetchAnalytics(true);
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleExport = () => {
@@ -1075,7 +1089,8 @@ function StockStatus() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    (async () => {
+    const fetchStockStatus = async (silent = false) => {
+      if (!silent) setLoading(true);
       try {
         const res = await apiClient.get("/admin/stock-status");
         if (res?.success && Array.isArray(res.data)) {
@@ -1083,11 +1098,17 @@ function StockStatus() {
         }
       } catch (err) {
         console.error(err);
-        toast.error("Failed to load inventory stock reports");
+        if (!silent) toast.error("Failed to load inventory stock reports");
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    })();
+    };
+
+    fetchStockStatus();
+    const interval = setInterval(() => {
+      fetchStockStatus(true);
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const filtered = useMemo(() => {
@@ -1201,8 +1222,8 @@ function ProductsAdmin({ handleEdit, handleDuplicate }: { handleEdit: (prod: any
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiClient.get("/products?limit=100");
       const catRes = await apiClient.get("/categories");
@@ -1214,13 +1235,19 @@ function ProductsAdmin({ handleEdit, handleDuplicate }: { handleEdit: (prod: any
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load products");
+      if (!silent) toast.error("Failed to load products");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => {
+      load(true);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const del = async (id: string) => {
     if (!confirm("Are you sure you want to permanently delete this product?")) return;
@@ -1509,7 +1536,27 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
   };
 
   const [colors, setColors] = useState<string[]>(initial?.colors || ["Ivory", "Gold", "Blush"]);
-  const [sizes, setSizes] = useState<string[]>(initial?.sizes || ["Small", "Medium", "Large"]);
+  const [sizes, setSizes] = useState<string[]>(() => {
+    const raw = initial?.sizes || ["S", "M", "L"];
+    return Array.from(new Set(raw.map((sz: string) => {
+      if (sz === "Small") return "S";
+      if (sz === "Medium") return "M";
+      if (sz === "Large") return "L";
+      return sz;
+    })));
+  });
+  const [sizeStock, setSizeStock] = useState<Record<string, number>>(() => {
+    const stockMap = initial?.sizeStock || {};
+    const cleanedStock: Record<string, number> = {};
+    Object.keys(stockMap).forEach(k => {
+      let normalizedKey = k;
+      if (k === "Small") normalizedKey = "S";
+      else if (k === "Medium") normalizedKey = "M";
+      else if (k === "Large") normalizedKey = "L";
+      cleanedStock[normalizedKey] = Number(stockMap[k]) || 0;
+    });
+    return cleanedStock;
+  });
   const [newColor, setNewColor] = useState("");
 
   const [fabric, setFabric] = useState(initial?.specifications?.fabric || "Silk / Satin blend");
@@ -1569,12 +1616,19 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
       price: Number(price),
       compareAtPrice: Number(mrp),
       bulkPrice: Number(bulkPrice),
-      stock: Number(stock),
+      stock: sizes.length > 0 ? Object.keys(sizeStock).filter(k => sizes.includes(k)).reduce((sum, k) => sum + (sizeStock[k] || 0), 0) : Number(stock),
       sku: sku || "GFT-" + occasion.substring(0,3).toUpperCase() + "-" + Math.floor(100 + Math.random()*900),
       lowStockAlert: Number(lowStockAlert),
       active: published,
       colors,
       sizes,
+      sizeStock: (() => {
+        const cleaned: Record<string, number> = {};
+        sizes.forEach(sz => {
+          cleaned[sz] = sizeStock[sz] ?? 0;
+        });
+        return cleaned;
+      })(),
       images: imageArray,
       video,
       specifications: { fabric, dimensions, weight, handle, care },
@@ -1700,7 +1754,7 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
                 <option value="out-of-stock">Out of Stock (Unavailable)</option>
               </select>
             </Field>
-            <Field label="Stock Count"><input type="number" className="i" value={stock} onChange={(e) => setStock(Number(e.target.value))} /></Field>
+            <Field label="Stock Count (Calculated)"><input type="number" className="i bg-[#fbfbfb] cursor-not-allowed text-muted-foreground" value={sizes.length > 0 ? Object.keys(sizeStock).filter(k => sizes.includes(k)).reduce((sum, k) => sum + (sizeStock[k] || 0), 0) : stock} readOnly /></Field>
             <Field label="Low Stock Alert Level"><input type="number" className="i" value={lowStockAlert} onChange={(e) => setLowStockAlert(Number(e.target.value))} /></Field>
 
             <Field label="Publish Status">
@@ -1715,38 +1769,40 @@ function ProductForm({ initial, onClose }: { initial: any | null; onClose: () =>
         {/* VARIATIONS TAB */}
         {activeTab === "variations" && (
           <div className="space-y-6">
-            <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">Supported Colors</label>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {colors.map(c => (
-                  <span key={c} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-cream/80 text-xs font-medium border border-[#EADFC9]">
-                    {c}
-                    <button type="button" onClick={() => handleRemoveColor(c)} className="text-destructive hover:scale-110"><X className="h-3 w-3" /></button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2 max-w-sm">
-                <input className="i" value={newColor} onChange={(e) => setNewColor(e.target.value)} placeholder="e.g. Red, Green, Royal Blue" />
-                <button type="button" onClick={handleAddColor} className="px-4 py-2 bg-foreground text-background text-xs font-semibold rounded-full shrink-0">Add Color</button>
-              </div>
-            </div>
-
-            <div className="gold-divider" />
 
             <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">Supported Sizes</label>
-              <div className="flex gap-3">
-                {["Small", "Medium", "Large", "XL", "Bespoke"].map(sz => {
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">Supported Sizes & Stock</label>
+              <div className="space-y-4">
+                {["S", "M", "L", "XL", "Bespoke"].map(sz => {
                   const selected = sizes.includes(sz);
                   return (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => handleToggleSize(sz)}
-                      className={`px-5 py-2.5 rounded-full text-xs font-semibold border transition ${
-                        selected ? "bg-foreground text-background border-foreground shadow" : "bg-white text-muted-foreground border-border hover:border-foreground"
-                      }`}
-                    >{sz}</button>
+                    <div key={sz} className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSize(sz)}
+                        className={`px-5 py-2.5 rounded-full text-xs font-semibold border transition w-28 shrink-0 text-center ${
+                          selected ? "bg-foreground text-background border-foreground shadow" : "bg-white text-muted-foreground border-border hover:border-foreground"
+                        }`}
+                      >{sz}</button>
+                      {selected && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-muted-foreground">Stock:</label>
+                          <input
+                            type="number"
+                            min={0}
+                            className="i py-1.5 px-3 max-w-[120px] text-xs"
+                            value={sizeStock[sz] ?? 0}
+                            onChange={(e) => {
+                              const val = Math.max(0, parseInt(e.target.value) || 0);
+                              setSizeStock(prev => ({
+                                ...prev,
+                                [sz]: val
+                              }));
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -3094,8 +3150,8 @@ function CustomersCMS() {
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiClient.get("/admin/users");
       if (res?.success && Array.isArray(res.data)) {
@@ -3105,11 +3161,17 @@ function CustomersCMS() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => {
+      load(true);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleToggleBlock = async (user: any) => {
     const action = user.isBlocked ? "unblock" : "block";
@@ -3269,7 +3331,7 @@ function OrdersAdmin() {
     load();
     const interval = setInterval(() => {
       load(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -4475,7 +4537,7 @@ function BulkInquiriesAdmin({ onRefresh }: { onRefresh?: () => void }) {
     load();
     const interval = setInterval(() => {
       load(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -4695,7 +4757,7 @@ function CustomerSupportCMS({ onRefresh }: { onRefresh?: () => void }) {
     load();
     const interval = setInterval(() => {
       load(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -4982,7 +5044,7 @@ function ReviewsAdmin() {
     fetchReviews();
     const interval = setInterval(() => {
       fetchReviews(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 

@@ -18,6 +18,8 @@ export type Product = {
   sizes: string[];
   description: string;
   priority?: number;
+  sizeStock?: Record<string, number>;
+  stock?: number;
 };
 
 export const products: Product[] = [

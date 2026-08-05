@@ -41,8 +41,14 @@ export const createOrder = async (req, res, next) => {
         return next(new ApiError(404, `Product not found with ID: ${item.product}`));
       }
 
-      if (product.stock < item.quantity) {
-        return next(new ApiError(400, `Insufficient stock for '${product.name}'. Only ${product.stock} available.`));
+      const requestedSize = item.size || 'M';
+      let availableStock = product.stock;
+      if (product.sizeStock && product.sizeStock.get(requestedSize) !== undefined) {
+        availableStock = product.sizeStock.get(requestedSize);
+      }
+
+      if (availableStock < item.quantity) {
+        return next(new ApiError(400, `Insufficient stock for '${product.name}' size ${requestedSize}. Only ${availableStock} available.`));
       }
 
       // Compile subtotal
@@ -53,6 +59,8 @@ export const createOrder = async (req, res, next) => {
         price: product.price,
         image: product.images[0] || '',
         product: product._id,
+        size: requestedSize,
+        color: item.color || 'Ivory',
       });
     }
 
@@ -89,9 +97,17 @@ export const createOrder = async (req, res, next) => {
 
     // 5. Decrement stocks
     for (const item of validatedItems) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: -item.quantity },
-      });
+      const product = await Product.findById(item.product);
+      if (product) {
+        if (product.sizeStock && product.sizeStock.get(item.size) !== undefined) {
+          const newSizeStock = product.sizeStock.get(item.size) - item.quantity;
+          product.sizeStock.set(item.size, Math.max(0, newSizeStock));
+          await product.save();
+        } else {
+          product.stock = Math.max(0, product.stock - item.quantity);
+          await product.save();
+        }
+      }
     }
 
     // 6. Handle Payments
@@ -131,7 +147,17 @@ export const createOrder = async (req, res, next) => {
       } catch (err) {
         // Rollback stocks on payment failure
         for (const item of validatedItems) {
-          await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
+          const product = await Product.findById(item.product);
+          if (product) {
+            if (product.sizeStock && product.sizeStock.get(item.size) !== undefined) {
+              const newSizeStock = product.sizeStock.get(item.size) + item.quantity;
+              product.sizeStock.set(item.size, newSizeStock);
+              await product.save();
+            } else {
+              product.stock = product.stock + item.quantity;
+              await product.save();
+            }
+          }
         }
         await Order.findByIdAndDelete(order._id);
         return next(new ApiError(500, `Stripe initialization failed: ${err.message}`));
@@ -161,7 +187,17 @@ export const createOrder = async (req, res, next) => {
       } catch (err) {
         // Rollback stocks on payment failure
         for (const item of validatedItems) {
-          await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
+          const product = await Product.findById(item.product);
+          if (product) {
+            if (product.sizeStock && product.sizeStock.get(item.size) !== undefined) {
+              const newSizeStock = product.sizeStock.get(item.size) + item.quantity;
+              product.sizeStock.set(item.size, newSizeStock);
+              await product.save();
+            } else {
+              product.stock = product.stock + item.quantity;
+              await product.save();
+            }
+          }
         }
         await Order.findByIdAndDelete(order._id);
         return next(new ApiError(500, `Razorpay initialization failed: ${err.message}`));
@@ -338,9 +374,17 @@ export const cancelOrder = async (req, res, next) => {
 
     // Restock items
     for (const item of order.orderItems) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: item.quantity },
-      });
+      const product = await Product.findById(item.product);
+      if (product) {
+        if (product.sizeStock && product.sizeStock.get(item.size) !== undefined) {
+          const newSizeStock = product.sizeStock.get(item.size) + item.quantity;
+          product.sizeStock.set(item.size, newSizeStock);
+          await product.save();
+        } else {
+          product.stock = product.stock + item.quantity;
+          await product.save();
+        }
+      }
     }
 
     new ApiResponse(200, order, 'Order cancelled successfully and inventory restocked.').send(res);

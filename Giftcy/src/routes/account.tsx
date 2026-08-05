@@ -80,7 +80,7 @@ function AccountPage() {
       const interval = setInterval(() => {
         loadOrders(true);
         loadSupportMessages(true);
-      }, 15000);
+      }, 1000);
       return () => clearInterval(interval);
     }
   }, [user]);

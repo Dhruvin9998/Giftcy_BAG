@@ -87,7 +87,12 @@ const productSchema = new mongoose.Schema(
     },
     sizes: {
       type: [String],
-      default: ['Small', 'Medium', 'Large'],
+      default: ['S', 'M', 'L'],
+    },
+    sizeStock: {
+      type: Map,
+      of: Number,
+      default: {},
     },
     packQuantities: {
       type: [Number],
@@ -144,6 +149,18 @@ productSchema.pre('validate', function (next) {
       .replace(/\-\-+/g, '-')
       .replace(/^-+/, '')
       .replace(/-+$/, '');
+  }
+  next();
+});
+
+// Auto-calculate total stock from size-wise stock
+productSchema.pre('save', function (next) {
+  if (this.sizeStock && this.sizeStock.size > 0) {
+    let totalStock = 0;
+    for (let value of this.sizeStock.values()) {
+      totalStock += Number(value) || 0;
+    }
+    this.stock = totalStock;
   }
   next();
 });

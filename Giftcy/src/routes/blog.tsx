@@ -97,7 +97,8 @@ function BlogPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    const fetchBlogs = async (silent = false) => {
+      if (!silent) setLoading(true);
       try {
         const res = await apiClient.get("/blogs");
         if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -118,11 +119,17 @@ function BlogPage() {
         }
       } catch (err) {
         console.error("Failed to load blogs from API", err);
-        setBlogs(BLOG_POSTS);
+        if (!silent) setBlogs(BLOG_POSTS);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    })();
+    };
+
+    fetchBlogs();
+    const interval = setInterval(() => {
+      fetchBlogs(true);
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const featured = blogs[0] || BLOG_POSTS[0];

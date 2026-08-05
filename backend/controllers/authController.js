@@ -54,6 +54,9 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
     isVerified: user.isVerified,
     phone: user.phone || '',
     address: user.address || '',
+    city: user.city || '',
+    state: user.state || '',
+    pincode: user.pincode || '',
   };
 
   new ApiResponse(statusCode, { user: userResponse, token }, message).send(res);
@@ -460,13 +463,16 @@ export const getProfile = async (req, res, next) => {
  */
 export const updateProfile = async (req, res, next) => {
   try {
-    const { name, email, password, phone, address } = req.body;
+    const { name, email, password, phone, address, city, state, pincode } = req.body;
 
     const user = await User.findById(req.user.id);
 
     if (name) user.name = name;
     if (phone !== undefined) user.phone = phone;
     if (address !== undefined) user.address = address;
+    if (city !== undefined) user.city = city;
+    if (state !== undefined) user.state = state;
+    if (pincode !== undefined) user.pincode = pincode;
     
     if (email && email !== user.email) {
       // Check if email already registered

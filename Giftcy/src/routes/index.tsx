@@ -201,7 +201,7 @@ function Home() {
     };
 
     syncData();
-    const interval = setInterval(syncData, 15000);
+    const interval = setInterval(syncData, 1000);
     return () => clearInterval(interval);
   }, []);
 

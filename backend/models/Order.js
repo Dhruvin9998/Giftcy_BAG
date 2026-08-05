@@ -10,6 +10,8 @@ const orderItemSchema = new mongoose.Schema({
     ref: 'Product',
     required: true,
   },
+  size: { type: String },
+  color: { type: String },
 });
 
 const orderSchema = new mongoose.Schema(

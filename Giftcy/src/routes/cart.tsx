@@ -34,76 +34,6 @@ function CartPage() {
   const grand = total + shipping;
   const [code, setCode] = useState("");
   const [applying, setApplying] = useState(false);
-  const [placing, setPlacing] = useState(false);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "Razorpay">("COD");
-  const [form, setForm] = useState({
-    name: user?.name ?? "",
-    email: user?.email ?? "",
-    phone: user?.phone ?? "",
-    address: user?.address ?? "",
-    city: "",
-    state: "",
-    pincode: "",
-  });
-
-  const [pincodeSettings, setPincodeSettings] = useState<{ mode: string; pincodes: string } | null>(null);
-  const [isPincodeChecking, setIsPincodeChecking] = useState(false);
-  const [pincodeError, setPincodeError] = useState("");
-  const [codNotAllowed, setCodNotAllowed] = useState(false);
-
-  useEffect(() => {
-    const fetchPincodeSettings = async () => {
-      try {
-        const res = await apiClient.get("/settings");
-        if (res?.success && res?.data?.pincode_settings) {
-          setPincodeSettings(res.data.pincode_settings);
-        }
-      } catch (err) {
-        console.error("Failed to load pincode settings", err);
-      }
-    };
-    fetchPincodeSettings();
-  }, []);
-
-  useEffect(() => {
-    if (form.pincode.length === 6) {
-      const checkPincode = async () => {
-        setIsPincodeChecking(true);
-        setPincodeError("");
-        setCodNotAllowed(false);
-        const result = await validateIndianPincode(form.pincode, pincodeSettings);
-        setIsPincodeChecking(false);
-        if (result.valid) {
-          if (result.serviceable) {
-            setForm((prev) => ({
-              ...prev,
-              city: result.city || prev.city,
-              state: result.state || prev.state,
-            }));
-            setCodNotAllowed(false);
-          } else {
-            setPincodeError("Standard shipping is unavailable for this pincode.");
-            setCodNotAllowed(true);
-            if (paymentMethod === "COD") {
-              setPaymentMethod("Razorpay");
-            }
-          }
-        } else {
-          setPincodeError(result.error || "Invalid pincode.");
-          setCodNotAllowed(true);
-          if (paymentMethod === "COD") {
-            setPaymentMethod("Razorpay");
-          }
-        }
-      };
-      checkPincode();
-    } else {
-      setPincodeError("");
-      setCodNotAllowed(false);
-    }
-  }, [form.pincode, pincodeSettings]);
-
   const apply = async () => {
     setApplying(true);
     const r = await applyCoupon(code);
@@ -118,139 +48,7 @@ function CartPage() {
       nav({ to: "/auth" });
       return;
     }
-    setShowCheckout(true);
-  };
-
-  const place = async () => {
-    if (!form.name || !form.email || !form.address || !form.city || !form.state || !form.pincode) {
-      return toast.error("Please fill all shipping details");
-    }
-    if (!form.phone) return toast.error("Phone number is required for checkout");
-    if (pincodeError) {
-      return toast.error(pincodeError);
-    }
-    if (codNotAllowed && paymentMethod === "COD") {
-      return toast.error("Cash on Delivery (COD) is not available for this pincode.");
-    }
-    setPlacing(true);
-    try {
-      let fallbackProductId = "";
-      if (items.some((i) => !i.product.id)) {
-        try {
-          const cachedDbRaw = localStorage.getItem("giftcy_products_db_list");
-          if (cachedDbRaw) {
-            const list = JSON.parse(cachedDbRaw);
-            if (list.length > 0) {
-              fallbackProductId = list[0]._id || list[0].id;
-            }
-          }
-          if (!fallbackProductId) {
-            const prodRes = await apiClient.get("/products?limit=1");
-            if (prodRes?.success && prodRes?.data?.products?.length > 0) {
-              fallbackProductId = prodRes.data.products[0]._id || prodRes.data.products[0].id;
-            }
-          }
-        } catch (e) {
-          console.error("Failed to resolve fallback product id for custom cart item", e);
-        }
-        if (!fallbackProductId) {
-          fallbackProductId = "6a2cf9cb75f4b065ed8eddb6";
-        }
-      }
-
-      const orderItems = items.map((i) => ({
-        product: i.product.id || fallbackProductId,
-        quantity: i.qty,
-      }));
-
-      const payload = {
-        orderItems,
-        shippingAddress: {
-          address: form.address,
-          city: form.city,
-          state: form.state,
-          postalCode: form.pincode,
-          country: "India",
-          phone: form.phone,
-        },
-        paymentMethod,
-        couponCode: coupon?.code ?? null,
-        shippingPrice: shipping,
-        taxPrice: 0,
-      };
-
-      const response = await apiClient.post("/orders", payload);
-      if (response?.success && response?.data) {
-        if (paymentMethod === "COD") {
-          toast.success("Order placed successfully! We'll be in touch.");
-          await clear();
-          setShowCheckout(false);
-          nav({ to: "/account" });
-        } else if (paymentMethod === "Razorpay") {
-          const { razorpayOrderId, amount, currency } = response.data;
-          const loaded = await loadRazorpayScript();
-          if (!loaded) {
-            setPlacing(false);
-            return toast.error("Failed to load Razorpay payment gateway script.");
-          }
-
-          const options = {
-            key: (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || "rzp_test_mockkey",
-            amount,
-            currency,
-            name: "Giftcy",
-            description: "Premium Fabric Gift Bags",
-            order_id: razorpayOrderId,
-            prefill: {
-              name: form.name,
-              email: form.email,
-              contact: form.phone,
-            },
-            theme: {
-              color: "#c8956b",
-            },
-            handler: async (resp: any) => {
-              try {
-                setPlacing(true);
-                const verifyRes = await apiClient.post("/orders/verify-razorpay", {
-                  razorpayOrderId: resp.razorpay_order_id,
-                  razorpayPaymentId: resp.razorpay_payment_id,
-                  signature: resp.razorpay_signature,
-                });
-
-                if (verifyRes?.success) {
-                  toast.success("Payment verified & Order completed successfully!");
-                  await clear();
-                  setShowCheckout(false);
-                  nav({ to: "/account" });
-                } else {
-                  toast.error(verifyRes.message || "Failed to verify payment signature");
-                }
-              } catch (err: any) {
-                toast.error(err.message || "Something went wrong during payment verification");
-              } finally {
-                setPlacing(false);
-              }
-            },
-            modal: {
-              ondismiss: () => {
-                setPlacing(false);
-                toast.warning("Payment checkout cancelled.");
-              },
-            },
-          };
-
-          const rzp = new (window as any).Razorpay(options);
-          rzp.open();
-        }
-      } else {
-        toast.error(response?.message || "Failed to place order");
-        setPlacing(false);
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Something went wrong while placing the order");
-      setPlacing(false);
-    }
+    nav({ to: "/checkout" });
   };
 
   return (
@@ -267,7 +65,7 @@ function CartPage() {
         <div className="mt-10 grid lg:grid-cols-[1fr_400px] gap-12">
           <div className="space-y-6">
             {items.map((it) => (
-              <div key={it.product.slug} className="flex gap-5 pb-6 border-b border-border">
+              <div key={`${it.product.slug}-${it.size || "M"}-${it.color || "Ivory"}`} className="flex gap-5 pb-6 border-b border-border">
                 <img
                   src={it.product.image}
                   alt={it.product.name}
@@ -281,13 +79,13 @@ function CartPage() {
                       <h3 className="serif text-xl mt-1">{it.product.name}</h3>
                       {(it.size || it.color) && <p className="text-xs text-muted-foreground mt-1">{[it.color, it.size].filter(Boolean).join(" · ")}</p>}
                     </div>
-                    <button onClick={() => remove(it.product.slug)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                    <button onClick={() => remove(it.product.slug, it.size, it.color)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center border border-border rounded-full">
-                      <button className="p-2" onClick={() => updateQty(it.product.slug, it.qty - 1)}><Minus className="h-3.5 w-3.5" /></button>
+                      <button className="p-2" onClick={() => updateQty(it.product.slug, (q) => q - 1, it.size, it.color)}><Minus className="h-3.5 w-3.5" /></button>
                       <span className="px-3 text-sm">{it.qty}</span>
-                      <button className="p-2" onClick={() => updateQty(it.product.slug, it.qty + 1)}><Plus className="h-3.5 w-3.5" /></button>
+                      <button className="p-2" onClick={() => updateQty(it.product.slug, (q) => q + 1, it.size, it.color)}><Plus className="h-3.5 w-3.5" /></button>
                     </div>
                     <span className="serif text-lg">₹{it.product.price * it.qty}</span>
                   </div>
@@ -337,83 +135,6 @@ function CartPage() {
         </div>
       )}
 
-      {showCheckout && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-5" onClick={() => setShowCheckout(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-background rounded-3xl p-7 lg:p-9 w-full max-w-md shadow-luxury max-h-[92vh] overflow-y-auto animate-in zoom-in duration-200">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="serif text-2xl">Checkout</h3>
-              <button onClick={() => setShowCheckout(false)}><X className="h-5 w-5" /></button>
-            </div>
-            <div className="space-y-3">
-              <input className="i" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              <input className="i" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <input className="i" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <textarea rows={2} className="i" placeholder="Shipping address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-              <div className="grid grid-cols-2 gap-2">
-                <input className="i" placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-                <input className="i" placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
-              </div>
-              <div>
-                <input 
-                  className="i" 
-                  placeholder="Pincode" 
-                  maxLength={6} 
-                  value={form.pincode} 
-                  onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "") })} 
-                />
-                {isPincodeChecking && <p className="text-[10px] text-muted-foreground mt-1 px-1">Checking delivery availability...</p>}
-                {pincodeError && <p className="text-[10px] text-destructive mt-1 px-1">{pincodeError}</p>}
-                {!isPincodeChecking && !pincodeError && form.pincode.length === 6 && (
-                  <p className="text-[10px] text-emerald-700 mt-1 px-1">🟢 Delivery & COD Available</p>
-                )}
-              </div>
-              
-              {/* Payment Method */}
-              <div className="mt-4 pt-3 border-t border-border">
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-2">Payment Method</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={codNotAllowed}
-                    onClick={() => setPaymentMethod("COD")}
-                    className={`py-2.5 px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
-                      codNotAllowed
-                        ? "border-border bg-muted/20 text-muted-foreground cursor-not-allowed opacity-50"
-                        : paymentMethod === "COD"
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border hover:border-foreground"
-                    }`}
-                  >
-                    Cash on Delivery
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("Razorpay")}
-                    className={`py-2.5 px-3 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
-                      paymentMethod === "Razorpay" ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"
-                    }`}
-                  >
-                    Online (Razorpay)
-                  </button>
-                </div>
-                {codNotAllowed && (
-                  <p className="text-[10px] text-destructive mt-2 px-1 text-center font-medium">
-                    ⚠️ Cash on Delivery (COD) is not available for this pincode.
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="mt-6 flex justify-between items-baseline">
-              <span className="text-sm text-muted-foreground">Total</span>
-              <span className="serif text-2xl">₹{grand}</span>
-            </div>
-            <button onClick={place} disabled={placing} className="mt-5 w-full py-3.5 rounded-full bg-foreground text-background text-sm font-medium tracking-wider uppercase disabled:opacity-60">
-              {placing ? "Processing…" : `Pay ₹${grand}`}
-            </button>
-            <style>{`.i{width:100%;padding:.75rem 1rem;border:1px solid hsl(var(--border));border-radius:1rem;background:transparent;font-size:.875rem;outline:none}.i:focus{border-color:var(--gold)}`}</style>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

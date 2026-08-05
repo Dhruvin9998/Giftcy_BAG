@@ -80,7 +80,7 @@ function CollectionPage() {
     fetchCollection();
     const interval = setInterval(() => {
       fetchCollection(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [slug]);
 

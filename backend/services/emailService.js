@@ -13,12 +13,6 @@ const getTransporter = () => {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: port,
     secure: isSecure,
-    pool: true, // Enable SMTP connection pooling for fast message dispatch
-    maxConnections: 5,
-    maxMessages: 100,
-    connectionTimeout: 8000, // 8 seconds max connect timeout
-    greetingTimeout: 5000,   // 5 seconds max greeting timeout
-    socketTimeout: 10000,    // 10 seconds max socket timeout
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -299,7 +293,7 @@ ${contact.message}
   `;
 
   await sendEmail({
-    from: `"${contact.name}" <${contact.email}>`,
+    from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
     replyTo: contact.email,
     to: 'giftcybag1609@gmail.com',
     subject,
@@ -389,7 +383,7 @@ export const sendBulkInquiryEmail = async (inquiry) => {
   `;
 
   await sendEmail({
-    from: `"${inquiry.name}" <${inquiry.email}>`,
+    from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
     replyTo: inquiry.email,
     to: 'giftcybag1609@gmail.com',
     subject,

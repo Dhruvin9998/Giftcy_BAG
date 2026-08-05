@@ -14,6 +14,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as CustomizeRouteImport } from './routes/customize'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as BulkRouteImport } from './routes/bulk'
 import { Route as BlogRouteImport } from './routes/blog'
@@ -52,6 +53,11 @@ const CustomizeRoute = CustomizeRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRouteWithChildren
   '/bulk': typeof BulkRoute
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
   '/gallery': typeof GalleryRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogRouteWithChildren
   '/bulk': typeof BulkRoute
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
   '/gallery': typeof GalleryRoute
@@ -177,6 +185,7 @@ export interface FileRoutesById {
   '/blog': typeof BlogRouteWithChildren
   '/bulk': typeof BulkRoute
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
   '/gallery': typeof GalleryRoute
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/bulk'
     | '/cart'
+    | '/checkout'
     | '/contact'
     | '/customize'
     | '/gallery'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/bulk'
     | '/cart'
+    | '/checkout'
     | '/contact'
     | '/customize'
     | '/gallery'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/bulk'
     | '/cart'
+    | '/checkout'
     | '/contact'
     | '/customize'
     | '/gallery'
@@ -264,6 +276,7 @@ export interface RootRouteChildren {
   BlogRoute: typeof BlogRouteWithChildren
   BulkRoute: typeof BulkRoute
   CartRoute: typeof CartRoute
+  CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   CustomizeRoute: typeof CustomizeRoute
   GalleryRoute: typeof GalleryRoute
@@ -309,6 +322,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cart': {
@@ -443,6 +463,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogRoute: BlogRouteWithChildren,
   BulkRoute: BulkRoute,
   CartRoute: CartRoute,
+  CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   CustomizeRoute: CustomizeRoute,
   GalleryRoute: GalleryRoute,

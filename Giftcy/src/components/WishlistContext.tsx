@@ -84,7 +84,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     loadWishlist();
     const interval = setInterval(() => {
       loadWishlist(true);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [user]);
 

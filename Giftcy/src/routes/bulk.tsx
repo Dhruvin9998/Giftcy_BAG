@@ -31,7 +31,7 @@ function Bulk() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    (async () => {
+    const fetchSettings = async () => {
       try {
         const res = await apiClient.get("/settings");
         if (res?.success && res?.data?.contact_info?.whatsapp) {
@@ -43,7 +43,10 @@ function Bulk() {
       } catch (err) {
         console.error("Failed to load settings in Bulk", err);
       }
-    })();
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

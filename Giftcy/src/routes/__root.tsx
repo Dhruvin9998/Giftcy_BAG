@@ -134,7 +134,7 @@ function RootComponent() {
   const location = useRouterState({
     select: (state) => state.location,
   });
-  const hideLayout = location.pathname === "/auth" || location.pathname.startsWith("/admin");
+  const hideLayout = location.pathname === "/auth" || location.pathname === "/checkout" || location.pathname.startsWith("/admin");
 
   return (
     <QueryClientProvider client={queryClient}>

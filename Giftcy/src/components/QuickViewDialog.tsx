@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Minus, Plus, ShoppingBag, X, Heart, ExternalLink } from "lucide-react";
 import type { Product } from "@/lib/products";
@@ -14,8 +14,18 @@ type QuickViewDialogProps = {
 export function QuickViewDialog({ product, open, setOpen }: QuickViewDialogProps) {
   const { add } = useCart();
   const { toggle, has } = useWishlist();
-  const [size, setSize] = useState(product.sizes[1] ?? product.sizes[0]);
-  const [color, setColor] = useState(product.colors[0]);
+  const availableSizes = useMemo(() => {
+    return product.sizes.filter((s) => {
+      const specificStock = product.sizeStock?.[s] !== undefined ? product.sizeStock[s] : (product.stock !== undefined ? product.stock : 0);
+      return specificStock > 0;
+    });
+  }, [product.sizes, product.sizeStock, product.stock]);
+
+  const [size, setSize] = useState(() => {
+    return availableSizes[0] ?? product.sizes[0] ?? "M";
+  });
+
+  const [color, setColor] = useState("");
   const [qty, setQty] = useState(1);
 
   const off = Math.round(((product.mrp - product.price) / product.mrp) * 100);
@@ -85,29 +95,7 @@ export function QuickViewDialog({ product, open, setOpen }: QuickViewDialogProps
 
               {/* Variant Selectors */}
               <div className="space-y-4">
-                {/* Color Selector */}
-                {product.colors.length > 0 && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-2">
-                      Color: <strong className="text-foreground font-medium">{color}</strong>
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {product.colors.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => setColor(c)}
-                          className={`px-3 py-1 rounded-full border text-xs transition-all ${
-                            color === c
-                              ? "border-foreground bg-foreground text-background font-medium"
-                              : "border-border hover:border-foreground"
-                          }`}
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Size Selector */}
                 {product.sizes.length > 0 && (
@@ -116,20 +104,48 @@ export function QuickViewDialog({ product, open, setOpen }: QuickViewDialogProps
                       Size: <strong className="text-foreground font-medium">{size}</strong>
                     </span>
                     <div className="flex gap-1.5">
-                      {product.sizes.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setSize(s)}
-                          className={`h-9 w-9 rounded-full border text-xs transition-all flex items-center justify-center ${
-                            size === s
-                              ? "border-foreground bg-foreground text-background font-medium"
-                              : "border-border hover:border-foreground"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      ))}
+                      {availableSizes.map((s) => {
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              setSize(s);
+                              setQty(1);
+                            }}
+                            className={`h-9 px-3 rounded-full border text-xs transition-all flex items-center justify-center ${
+                              size === s
+                                ? "border-foreground bg-foreground text-background font-medium"
+                                : "border-border hover:border-foreground"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
                     </div>
+                    {/* Show stock level */}
+                    {(() => {
+                      const specificStock = product.sizeStock?.[size] !== undefined ? product.sizeStock[size] : (product.stock !== undefined ? product.stock : 99);
+                      if (specificStock <= 0) {
+                        return (
+                          <p className="text-[10px] text-muted-foreground/70 mt-1.5 font-medium flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" /> Out of Stock
+                          </p>
+                        );
+                      } else if (specificStock <= 10) {
+                        return (
+                          <p className="text-[10px] text-[#caa24b] mt-1.5 font-medium flex items-center gap-1.5 animate-pulse">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#caa24b]" /> Only {specificStock} left!
+                          </p>
+                        );
+                      } else {
+                        return (
+                          <p className="text-[10px] text-muted-foreground mt-1.5 font-medium flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#caa24b]/45" /> In Stock ({specificStock} available)
+                          </p>
+                        );
+                      }
+                    })()}
                   </div>
                 )}
               </div>
@@ -144,7 +160,13 @@ export function QuickViewDialog({ product, open, setOpen }: QuickViewDialogProps
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                   <span className="text-sm w-8 text-center select-none">{qty}</span>
-                  <button className="px-3 py-2 text-muted-foreground hover:text-foreground" onClick={() => setQty((q) => q + 1)}>
+                  <button
+                    className="px-3 py-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      const specificStock = product.sizeStock?.[size] !== undefined ? product.sizeStock[size] : (product.stock !== undefined ? product.stock : 99);
+                      setQty((q) => Math.min(specificStock, q + 1));
+                    }}
+                  >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -166,8 +188,12 @@ export function QuickViewDialog({ product, open, setOpen }: QuickViewDialogProps
               {/* Action Buttons */}
               <div className="flex gap-2">
                 <button
+                  disabled={(() => {
+                    const specificStock = product.sizeStock?.[size] !== undefined ? product.sizeStock[size] : (product.stock !== undefined ? product.stock : 99);
+                    return specificStock <= 0;
+                  })()}
                   onClick={handleAddToCart}
-                  className="flex-1 h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 transition text-xs font-semibold uppercase tracking-widest flex items-center justify-center gap-2"
+                  className="flex-1 h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 transition text-xs font-semibold uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ShoppingBag className="h-4 w-4" /> Add to Cart
                 </button>
